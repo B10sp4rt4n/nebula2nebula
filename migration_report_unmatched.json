@@ -1,0 +1,773 @@
+{
+  "summary": {
+    "total_unmatched": 109,
+    "reasons": {
+      "pending_validation": 109
+    }
+  },
+  "hosts": [
+    {
+      "host": "ITEA24407",
+      "usuario": "Adi Jassiel Castillo Salas",
+      "modelo": "L15 Gen 1",
+      "sn": "PF3B2RFE",
+      "status": "pending_validation"
+    },
+    {
+      "host": "IT006246",
+      "usuario": "Alan Enrique Cruz Castillo",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3KVLA7",
+      "status": "pending_validation"
+    },
+    {
+      "host": "IT006203",
+      "usuario": "Jos\u00e9 Isa\u00edas Monsiv\u00e1is Hernandez",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3KG7ZP",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24397",
+      "usuario": "Alejandro Zarazua Lopez",
+      "modelo": "L15 Gen 2",
+      "sn": "PF32BKX9",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24410",
+      "usuario": "Alfonso Reyna Rodriguez",
+      "modelo": "L15 Gen 2",
+      "sn": "PF32B9R3",
+      "status": "pending_validation"
+    },
+    {
+      "host": "TXATMXC001",
+      "usuario": "Alfredo Enrique de la Garza Luna",
+      "modelo": "T14",
+      "sn": "PF54V0AC",
+      "status": "pending_validation"
+    },
+    {
+      "host": "IT006202",
+      "usuario": "Alfredo Gallarza Segura",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3KTT2C",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24315",
+      "usuario": "Alfredo Nava Padron",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3B3338",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24373",
+      "usuario": "Anibal Casta\u00f1eda Anaya",
+      "modelo": "L15 Gen 2",
+      "sn": "PF31YF22",
+      "status": "pending_validation"
+    },
+    {
+      "host": "IT006269",
+      "usuario": "Areli Tenorio Garcia",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3FTT5J",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA2466",
+      "usuario": "Bego\u00f1a Carabias Yarto",
+      "modelo": "Yoga L390",
+      "sn": "R90XSDDX",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24347",
+      "usuario": "Benjamin Buzali Zaga",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3B2P89",
+      "status": "pending_validation"
+    },
+    {
+      "host": "IT006300",
+      "usuario": "Bruno Fernandez Mercado",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3KTCNG",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24399",
+      "usuario": "Carlos Alberto Alba Morales",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3B2RHG",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24114",
+      "usuario": "Carlos Alberto Marin de Alba",
+      "modelo": "L15 Gen 2",
+      "sn": "R911KQ7X",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24359",
+      "usuario": "Carlos Alejandro Gonzales Sanchez",
+      "modelo": "L15 Gen 2",
+      "sn": "PF336RNH",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24333",
+      "usuario": "Carlos Alfredo Espinoza Hernandez",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3BJ41V",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24401",
+      "usuario": "Omar Rodriguez Alejandre",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3B29YK",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA2482",
+      "usuario": "Carlos de la Cruz Reyna",
+      "modelo": "L15 Gen 2",
+      "sn": "PF2KWWV1",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24302",
+      "usuario": "Carlos Horacio Pacheco Lara",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3B2TQD",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24250",
+      "usuario": "Clemente Polo Rivas Salazar",
+      "modelo": "L15 Gen 2",
+      "sn": "PF336GZS",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24323",
+      "usuario": "Clero Australia Gutierrez Camargo",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3B2PAB",
+      "status": "pending_validation"
+    },
+    {
+      "host": "IT006216",
+      "usuario": "Cristina Montesinos Salguero",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3KMQ90",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24214",
+      "usuario": "Christopher Arellano Aguirre",
+      "modelo": "L15 Gen 2",
+      "sn": "PF31XWX4",
+      "status": "pending_validation"
+    },
+    {
+      "host": "IT006408",
+      "usuario": "Daniel Moncada Marquez",
+      "modelo": "P15 Gen 2",
+      "sn": "PF4B4CTS",
+      "status": "pending_validation"
+    },
+    {
+      "host": "IT006247",
+      "usuario": "Daniela Viridiana de los Santos",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3KHZB7",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24171",
+      "usuario": "Gabriela Trejo Lopez",
+      "modelo": "L15 Gen 2",
+      "sn": "PF2KWWXH",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24304",
+      "usuario": "Diana Alondra Hern\u00e1ndez Fuentes",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3B2870",
+      "status": "pending_validation"
+    },
+    {
+      "host": "IT006270",
+      "usuario": "Diana Massiel Arroyo Ag\u00fcero",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3KG5KK",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA2413",
+      "usuario": "Diego Alberto Fernandez Suro",
+      "modelo": "Yoga L390",
+      "sn": "R90WLK7C",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24360",
+      "usuario": "Edgar Ariel Laureano Paredes",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3B2A17",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24223",
+      "usuario": "Edher Andres Ortega Sanchez",
+      "modelo": "L15 Gen 2",
+      "sn": "PF31Y0BQ",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24258",
+      "usuario": "Ek Duarte Noberto Jesus",
+      "modelo": "L15 Gen 2",
+      "sn": "PF31YGD3",
+      "status": "pending_validation"
+    },
+    {
+      "host": "IT006290",
+      "usuario": "Elizabeth Casta\u00f1eda Reyes",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3KPFCX",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24409",
+      "usuario": "Ellys Alberto Granadillo",
+      "modelo": "L15 Gen 2",
+      "sn": "PF32CE1A",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24150",
+      "usuario": "Erick Rosalino Nava Monterrubio",
+      "modelo": "L15 Gen 1",
+      "sn": "PF2KV261",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24380",
+      "usuario": "Erika Anilu Coyoc Mendoza",
+      "modelo": "L15 Gen 2",
+      "sn": "PF31XVR6",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24321",
+      "usuario": "Esteban Salgado Galindo",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3B2WR8",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA2495",
+      "usuario": "Estephany Mariel Jimenez Vazquez",
+      "modelo": "L15 Gen 2",
+      "sn": "PF2KWW09",
+      "status": "pending_validation"
+    },
+    {
+      "host": "IT006208",
+      "usuario": "Fabio Ramirez Garcia",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3KMCNJ",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24324",
+      "usuario": "Fabiola Avenda\u00f1o Jaimes",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3B25ZM",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24434",
+      "usuario": "Fernando Arturo Reyes Rebora",
+      "modelo": "Yoga L13",
+      "sn": "R91467M1",
+      "status": "pending_validation"
+    },
+    {
+      "host": "IT006316",
+      "usuario": "Francisco Castellano Vazquez",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3KTQVC",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24427",
+      "usuario": "Leydi Yesenia Hernandez",
+      "modelo": "Yoga X1",
+      "sn": "PF1T0RA0",
+      "status": "pending_validation"
+    },
+    {
+      "host": "IT006306",
+      "usuario": "Georgina Frias Guzman",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3KTT1R",
+      "status": "pending_validation"
+    },
+    {
+      "host": "IT006263",
+      "usuario": "Gerardo Espinoza Bautista",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3KVF8S",
+      "status": "pending_validation"
+    },
+    {
+      "host": "IT006302",
+      "usuario": "Giovana Lira Zelada",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3KTYEF",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24408",
+      "usuario": "Gloria Yessenia Aguilar Rios",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3BHN6Y",
+      "status": "pending_validation"
+    },
+    {
+      "host": "IT006274",
+      "usuario": "Guadalupe Anakaren Trejo Ronco",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3KTNJZ",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24402",
+      "usuario": "Guadalupe Rivera Mu\u00f1oz",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3B2M28",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24364",
+      "usuario": "Gustavo Perez Salvatierra",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3B2M12",
+      "status": "pending_validation"
+    },
+    {
+      "host": "IT006226",
+      "usuario": "Hazael David Arcos Rosas",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3KFYS4",
+      "status": "pending_validation"
+    },
+    {
+      "host": "IT006213",
+      "usuario": "Hector Vazquez Estrada",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3KTT3P",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24228",
+      "usuario": "Israel Gomez Garcia",
+      "modelo": "L15 Gen 2",
+      "sn": "PF336RMV",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24420",
+      "usuario": "Ivette Madeline Ortega Zarza",
+      "modelo": "Yoga L13",
+      "sn": "R91467KR",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24332",
+      "usuario": "Ivette Diaz Lorenzo",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3B354W",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24281",
+      "usuario": "Jesus Carlos Alberto Flores Castro",
+      "modelo": "L15 Gen 2",
+      "sn": "PF32B4KV",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24137",
+      "usuario": "Jorge Alejo Salas",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3B2YZH",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24176",
+      "usuario": "Mariana Perez Jaimes",
+      "modelo": "L15 Gen 2",
+      "sn": "PF2KV6A3",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24287",
+      "usuario": "Jose Andres Ramirez Robles\u200e",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3377C9",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24424",
+      "usuario": "Jose Antonio Eduardo de la Concha Hernandez",
+      "modelo": "Yoga L13",
+      "sn": "R91467KJ",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA2495",
+      "usuario": "Jose de Jesus Lopez Guzman",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3KS7BF",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA024203",
+      "usuario": "Jose Francisco Espinosa Villarreal",
+      "modelo": "L15 Gen 2",
+      "sn": "PF32B6K5",
+      "status": "pending_validation"
+    },
+    {
+      "host": "IT006284",
+      "usuario": "Jose Luis Contreras Bautista",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3KG3DA",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24390",
+      "usuario": "Juan Carlos Hernandez Hernandez",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3B2WPJ",
+      "status": "pending_validation"
+    },
+    {
+      "host": "IT006228",
+      "usuario": "Juan Angel Hernandez",
+      "modelo": "L15 Gen 2",
+      "sn": "PF2KTSXD",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24236",
+      "usuario": "Juan Carlos Martinez Granados",
+      "modelo": "L15 Gen 2",
+      "sn": "PF32C9EQ",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA2406",
+      "usuario": "Juan Carlos Sanchez Esquivel",
+      "modelo": "Yoga L13",
+      "sn": "R90WLK7E",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24400",
+      "usuario": "Juan Manuel Ramirez Hernandez",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3B4PWQ",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24243",
+      "usuario": "Julian Alberto Olaya Castro",
+      "modelo": "Yoga X1",
+      "sn": "PF1T18BW",
+      "status": "pending_validation"
+    },
+    {
+      "host": "IT006257",
+      "usuario": "Leticia Yesenia Iba\u00f1ez Iba\u00f1ez",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3KS9KE",
+      "status": "pending_validation"
+    },
+    {
+      "host": "IT006254",
+      "usuario": "Luis Alfredo Peralta Contreras",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3KG838",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24356",
+      "usuario": "Luis Miguel Alcala",
+      "modelo": "L15 Gen 2",
+      "sn": "PF1T1B1G",
+      "status": "pending_validation"
+    },
+    {
+      "host": "IT006211",
+      "usuario": "Maleny Karina Francisco Pacheco",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3KTWAN",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24111",
+      "usuario": "Javier Jimenez Prudente",
+      "modelo": "Yoga X13",
+      "sn": "R911KQ80",
+      "status": "pending_validation"
+    },
+    {
+      "host": "IT006295",
+      "usuario": "Marco Julio Velasco Marquez",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3KTQVQ",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24221",
+      "usuario": "Marco Antonio Trevi\u00f1o",
+      "modelo": "L15 Gen 2",
+      "sn": "PF337141",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24384",
+      "usuario": "Maria Luisa Olivas Giner",
+      "modelo": "YOGA LX",
+      "sn": "PF1T1600",
+      "status": "pending_validation"
+    },
+    {
+      "host": "IT006266",
+      "usuario": "Mariana Duque Brise\u00f1o",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3KTQT1",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24374",
+      "usuario": "Marketing - C. Alejandro / Banuet",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3BJ815",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24191",
+      "usuario": "Michael Aguila Zumaya",
+      "modelo": "L15 Gen 1",
+      "sn": "PF2KWXDJ",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24136",
+      "usuario": "Michelle Emanuel Flores Hernandez",
+      "modelo": "L15 Gen 2",
+      "sn": "PF2KTYB1",
+      "status": "pending_validation"
+    },
+    {
+      "host": "IT006223",
+      "usuario": "Jorge Jair Cuellar Trejo",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3KRHKB",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24365",
+      "usuario": "Miguel Angel Orozco Casanova",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3B25WZ",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24303",
+      "usuario": "Miguel Rivas Meza",
+      "modelo": "Legion 7-15IMH05",
+      "sn": "MP258WQ2",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA2486",
+      "usuario": "Monica Soto Armas",
+      "modelo": "L15 Gen 2",
+      "sn": "PF2KWWYG",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24413",
+      "usuario": "Nataly Castro",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3B2REJ",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24344",
+      "usuario": "Nataly Monserrat Breton Iglesias",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3B2YY5",
+      "status": "pending_validation"
+    },
+    {
+      "host": "TXATLA0001",
+      "usuario": "Oscar Lopez Escorcia",
+      "modelo": "P14s",
+      "sn": "PF3XEXNR",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24293",
+      "usuario": "Osvaldo Santillan Santillan",
+      "modelo": "L15 Gen 2",
+      "sn": "PF336RHW",
+      "status": "pending_validation"
+    },
+    {
+      "host": "IT006207",
+      "usuario": "Paola Martinez Malacara",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3KTL1Q",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24404",
+      "usuario": "Paulina de Jesus Manzano",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3BJ65P",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24387",
+      "usuario": "Piero Mauricio Blanco Morales",
+      "modelo": "L15 Gen 2",
+      "sn": "PF31Y4XW",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24131",
+      "usuario": "Raymundo Ishbak Aguilar Rios",
+      "modelo": "L15 Gen 2",
+      "sn": "PF31Y23K",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24395",
+      "usuario": "Ricardo Lopez Acosta",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3B2CBQ",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24325",
+      "usuario": "Ricardo Reyna Ramirez",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3B2PBW",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA2474",
+      "usuario": "Francisco Javier Hernandez",
+      "modelo": "L15 Gen 1",
+      "sn": "PF2KT81C",
+      "status": "pending_validation"
+    },
+    {
+      "host": "IT006298",
+      "usuario": "Rosa Maria Pastelin Brito",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3KFW9A",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24143",
+      "usuario": "Ruben Facundo Garcia",
+      "modelo": "L15 Gen 2",
+      "sn": "PF2KWTAN",
+      "status": "pending_validation"
+    },
+    {
+      "host": "TXATMX066",
+      "usuario": "Salvador Efra\u00edn Cordero Camacho",
+      "modelo": "Yoga L13",
+      "sn": "R91467LD",
+      "status": "pending_validation"
+    },
+    {
+      "host": "IT006286",
+      "usuario": "Sandra Angelica Tristan Jurado",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3KVF98",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24128",
+      "usuario": "Sergio Efrain Campos Alcocer",
+      "modelo": "L15 Gen 2",
+      "sn": "R911KQ7M",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24211",
+      "usuario": "Sofia Cortes Filogonio",
+      "modelo": "L15 Gen 2",
+      "sn": "PF32BPHW",
+      "status": "pending_validation"
+    },
+    {
+      "host": "IT006267",
+      "usuario": "Usiel Pamplona",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3KTT2N",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24396",
+      "usuario": "Victoria Belinda Teran",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3B23S0",
+      "status": "pending_validation"
+    },
+    {
+      "host": "TXATMXC002",
+      "usuario": "Yanin Vicente Ojeda",
+      "modelo": "P16v",
+      "sn": "PF58RL8S",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24372",
+      "usuario": "Yoltic Franco Gomez",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3B23SC",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24376",
+      "usuario": "Yoselin Noemi Marquez Paniagua",
+      "modelo": "L15 Gen 2",
+      "sn": "PF3B4HEN",
+      "status": "pending_validation"
+    },
+    {
+      "host": "ITEA24229",
+      "usuario": "Javier Ruiz Cantu",
+      "modelo": "L15 Gen 2",
+      "sn": "PF32C93K",
+      "status": "pending_validation"
+    }
+  ]
+}

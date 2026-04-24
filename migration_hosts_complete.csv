@@ -1,0 +1,110 @@
+id,host_name,usuario,modelo,serial_number,machine_id,endpoint_id,match_status,migration_attempts,migration_status,created_at
+1,ITEA24407,Adi Jassiel Castillo Salas,L15 Gen 1,PF3B2RFE,,,pending_validation,0,pending,2026-04-24 19:50:50
+2,IT006246,Alan Enrique Cruz Castillo,L15 Gen 2,PF3KVLA7,,,pending_validation,0,pending,2026-04-24 19:50:50
+3,IT006203,José Isaías Monsiváis Hernandez,L15 Gen 2,PF3KG7ZP,,,pending_validation,0,pending,2026-04-24 19:50:50
+4,ITEA24397,Alejandro Zarazua Lopez,L15 Gen 2,PF32BKX9,,,pending_validation,0,pending,2026-04-24 19:50:50
+5,ITEA24410,Alfonso Reyna Rodriguez,L15 Gen 2,PF32B9R3,,,pending_validation,0,pending,2026-04-24 19:50:50
+6,TXATMXC001,Alfredo Enrique de la Garza Luna,T14,PF54V0AC,,,pending_validation,0,pending,2026-04-24 19:50:50
+7,IT006202,Alfredo Gallarza Segura,L15 Gen 2,PF3KTT2C,,,pending_validation,0,pending,2026-04-24 19:50:50
+8,ITEA24315,Alfredo Nava Padron,L15 Gen 2,PF3B3338,,,pending_validation,0,pending,2026-04-24 19:50:50
+9,ITEA24373,Anibal Castañeda Anaya,L15 Gen 2,PF31YF22,,,pending_validation,0,pending,2026-04-24 19:50:50
+10,IT006269,Areli Tenorio Garcia,L15 Gen 2,PF3FTT5J,,,pending_validation,0,pending,2026-04-24 19:50:50
+11,ITEA2466,Begoña Carabias Yarto,Yoga L390,R90XSDDX,,,pending_validation,0,pending,2026-04-24 19:50:50
+12,ITEA24347,Benjamin Buzali Zaga,L15 Gen 2,PF3B2P89,,,pending_validation,0,pending,2026-04-24 19:50:50
+13,IT006300,Bruno Fernandez Mercado,L15 Gen 2,PF3KTCNG,,,pending_validation,0,pending,2026-04-24 19:50:50
+14,ITEA24399,Carlos Alberto Alba Morales,L15 Gen 2,PF3B2RHG,,,pending_validation,0,pending,2026-04-24 19:50:50
+15,ITEA24114,Carlos Alberto Marin de Alba,L15 Gen 2,R911KQ7X,,,pending_validation,0,pending,2026-04-24 19:50:50
+16,ITEA24359,Carlos Alejandro Gonzales Sanchez,L15 Gen 2,PF336RNH,,,pending_validation,0,pending,2026-04-24 19:50:50
+17,ITEA24333,Carlos Alfredo Espinoza Hernandez,L15 Gen 2,PF3BJ41V,,,pending_validation,0,pending,2026-04-24 19:50:50
+18,ITEA24401,Omar Rodriguez Alejandre,L15 Gen 2,PF3B29YK,,,pending_validation,0,pending,2026-04-24 19:50:50
+19,ITEA2482,Carlos de la Cruz Reyna,L15 Gen 2,PF2KWWV1,,,pending_validation,0,pending,2026-04-24 19:50:50
+20,ITEA24302,Carlos Horacio Pacheco Lara,L15 Gen 2,PF3B2TQD,,,pending_validation,0,pending,2026-04-24 19:50:50
+21,ITEA24250,Clemente Polo Rivas Salazar,L15 Gen 2,PF336GZS,,,pending_validation,0,pending,2026-04-24 19:50:50
+22,ITEA24323,Clero Australia Gutierrez Camargo,L15 Gen 2,PF3B2PAB,,,pending_validation,0,pending,2026-04-24 19:50:50
+23,IT006216,Cristina Montesinos Salguero,L15 Gen 2,PF3KMQ90,,,pending_validation,0,pending,2026-04-24 19:50:50
+24,ITEA24214,Christopher Arellano Aguirre,L15 Gen 2,PF31XWX4,,,pending_validation,0,pending,2026-04-24 19:50:50
+25,IT006408,Daniel Moncada Marquez,P15 Gen 2,PF4B4CTS,,,pending_validation,0,pending,2026-04-24 19:50:50
+26,IT006247,Daniela Viridiana de los Santos,L15 Gen 2,PF3KHZB7,,,pending_validation,0,pending,2026-04-24 19:50:50
+27,ITEA24171,Gabriela Trejo Lopez,L15 Gen 2,PF2KWWXH,,,pending_validation,0,pending,2026-04-24 19:50:50
+28,ITEA24304,Diana Alondra Hernández Fuentes,L15 Gen 2,PF3B2870,,,pending_validation,0,pending,2026-04-24 19:50:50
+29,IT006270,Diana Massiel Arroyo Agüero,L15 Gen 2,PF3KG5KK,,,pending_validation,0,pending,2026-04-24 19:50:50
+30,ITEA2413,Diego Alberto Fernandez Suro,Yoga L390,R90WLK7C,,,pending_validation,0,pending,2026-04-24 19:50:50
+31,ITEA24360,Edgar Ariel Laureano Paredes,L15 Gen 2,PF3B2A17,,,pending_validation,0,pending,2026-04-24 19:50:50
+32,ITEA24223,Edher Andres Ortega Sanchez,L15 Gen 2,PF31Y0BQ,,,pending_validation,0,pending,2026-04-24 19:50:50
+33,ITEA24258,Ek Duarte Noberto Jesus,L15 Gen 2,PF31YGD3,,,pending_validation,0,pending,2026-04-24 19:50:50
+34,IT006290,Elizabeth Castañeda Reyes,L15 Gen 2,PF3KPFCX,,,pending_validation,0,pending,2026-04-24 19:50:50
+35,ITEA24409,Ellys Alberto Granadillo,L15 Gen 2,PF32CE1A,,,pending_validation,0,pending,2026-04-24 19:50:50
+36,ITEA24150,Erick Rosalino Nava Monterrubio,L15 Gen 1,PF2KV261,,,pending_validation,0,pending,2026-04-24 19:50:50
+37,ITEA24380,Erika Anilu Coyoc Mendoza,L15 Gen 2,PF31XVR6,,,pending_validation,0,pending,2026-04-24 19:50:50
+38,ITEA24321,Esteban Salgado Galindo,L15 Gen 2,PF3B2WR8,,,pending_validation,0,pending,2026-04-24 19:50:50
+39,ITEA2495,Estephany Mariel Jimenez Vazquez,L15 Gen 2,PF2KWW09,,,pending_validation,0,pending,2026-04-24 19:50:50
+40,IT006208,Fabio Ramirez Garcia,L15 Gen 2,PF3KMCNJ,,,pending_validation,0,pending,2026-04-24 19:50:50
+41,ITEA24324,Fabiola Avendaño Jaimes,L15 Gen 2,PF3B25ZM,,,pending_validation,0,pending,2026-04-24 19:50:50
+42,ITEA24434,Fernando Arturo Reyes Rebora,Yoga L13,R91467M1,,,pending_validation,0,pending,2026-04-24 19:50:50
+43,IT006316,Francisco Castellano Vazquez,L15 Gen 2,PF3KTQVC,,,pending_validation,0,pending,2026-04-24 19:50:50
+44,ITEA24427,Leydi Yesenia Hernandez,Yoga X1,PF1T0RA0,,,pending_validation,0,pending,2026-04-24 19:50:50
+45,IT006306,Georgina Frias Guzman,L15 Gen 2,PF3KTT1R,,,pending_validation,0,pending,2026-04-24 19:50:50
+46,IT006263,Gerardo Espinoza Bautista,L15 Gen 2,PF3KVF8S,,,pending_validation,0,pending,2026-04-24 19:50:50
+47,IT006302,Giovana Lira Zelada,L15 Gen 2,PF3KTYEF,,,pending_validation,0,pending,2026-04-24 19:50:50
+48,ITEA24408,Gloria Yessenia Aguilar Rios,L15 Gen 2,PF3BHN6Y,,,pending_validation,0,pending,2026-04-24 19:50:50
+49,IT006274,Guadalupe Anakaren Trejo Ronco,L15 Gen 2,PF3KTNJZ,,,pending_validation,0,pending,2026-04-24 19:50:50
+50,ITEA24402,Guadalupe Rivera Muñoz,L15 Gen 2,PF3B2M28,,,pending_validation,0,pending,2026-04-24 19:50:50
+51,ITEA24364,Gustavo Perez Salvatierra,L15 Gen 2,PF3B2M12,,,pending_validation,0,pending,2026-04-24 19:50:50
+52,IT006226,Hazael David Arcos Rosas,L15 Gen 2,PF3KFYS4,,,pending_validation,0,pending,2026-04-24 19:50:50
+53,IT006213,Hector Vazquez Estrada,L15 Gen 2,PF3KTT3P,,,pending_validation,0,pending,2026-04-24 19:50:50
+54,ITEA24228,Israel Gomez Garcia,L15 Gen 2,PF336RMV,,,pending_validation,0,pending,2026-04-24 19:50:50
+55,ITEA24420,Ivette Madeline Ortega Zarza,Yoga L13,R91467KR,,,pending_validation,0,pending,2026-04-24 19:50:50
+56,ITEA24332,Ivette Diaz Lorenzo,L15 Gen 2,PF3B354W,,,pending_validation,0,pending,2026-04-24 19:50:50
+57,ITEA24281,Jesus Carlos Alberto Flores Castro,L15 Gen 2,PF32B4KV,,,pending_validation,0,pending,2026-04-24 19:50:50
+58,ITEA24137,Jorge Alejo Salas,L15 Gen 2,PF3B2YZH,,,pending_validation,0,pending,2026-04-24 19:50:50
+59,ITEA24176,Mariana Perez Jaimes,L15 Gen 2,PF2KV6A3,,,pending_validation,0,pending,2026-04-24 19:50:50
+60,ITEA24287,Jose Andres Ramirez Robles‎,L15 Gen 2,PF3377C9,,,pending_validation,0,pending,2026-04-24 19:50:50
+61,ITEA24424,Jose Antonio Eduardo de la Concha Hernandez,Yoga L13,R91467KJ,,,pending_validation,0,pending,2026-04-24 19:50:50
+62,ITEA2495,Jose de Jesus Lopez Guzman,L15 Gen 2,PF3KS7BF,,,pending_validation,0,pending,2026-04-24 19:50:50
+63,ITEA024203,Jose Francisco Espinosa Villarreal,L15 Gen 2,PF32B6K5,,,pending_validation,0,pending,2026-04-24 19:50:50
+64,IT006284,Jose Luis Contreras Bautista,L15 Gen 2,PF3KG3DA,,,pending_validation,0,pending,2026-04-24 19:50:50
+65,ITEA24390,Juan Carlos Hernandez Hernandez,L15 Gen 2,PF3B2WPJ,,,pending_validation,0,pending,2026-04-24 19:50:50
+66,IT006228,Juan Angel Hernandez,L15 Gen 2,PF2KTSXD,,,pending_validation,0,pending,2026-04-24 19:50:50
+67,ITEA24236,Juan Carlos Martinez Granados,L15 Gen 2,PF32C9EQ,,,pending_validation,0,pending,2026-04-24 19:50:50
+68,ITEA2406,Juan Carlos Sanchez Esquivel,Yoga L13,R90WLK7E,,,pending_validation,0,pending,2026-04-24 19:50:50
+69,ITEA24400,Juan Manuel Ramirez Hernandez,L15 Gen 2,PF3B4PWQ,,,pending_validation,0,pending,2026-04-24 19:50:50
+70,ITEA24243,Julian Alberto Olaya Castro,Yoga X1,PF1T18BW,,,pending_validation,0,pending,2026-04-24 19:50:50
+71,IT006257,Leticia Yesenia Ibañez Ibañez,L15 Gen 2,PF3KS9KE,,,pending_validation,0,pending,2026-04-24 19:50:50
+72,IT006254,Luis Alfredo Peralta Contreras,L15 Gen 2,PF3KG838,,,pending_validation,0,pending,2026-04-24 19:50:50
+73,ITEA24356,Luis Miguel Alcala,L15 Gen 2,PF1T1B1G,,,pending_validation,0,pending,2026-04-24 19:50:50
+74,IT006211,Maleny Karina Francisco Pacheco,L15 Gen 2,PF3KTWAN,,,pending_validation,0,pending,2026-04-24 19:50:50
+75,ITEA24111,Javier Jimenez Prudente,Yoga X13,R911KQ80,,,pending_validation,0,pending,2026-04-24 19:50:50
+76,IT006295,Marco Julio Velasco Marquez,L15 Gen 2,PF3KTQVQ,,,pending_validation,0,pending,2026-04-24 19:50:50
+77,ITEA24221,Marco Antonio Treviño,L15 Gen 2,PF337141,,,pending_validation,0,pending,2026-04-24 19:50:50
+78,ITEA24384,Maria Luisa Olivas Giner,YOGA LX,PF1T1600,,,pending_validation,0,pending,2026-04-24 19:50:50
+79,IT006266,Mariana Duque Briseño,L15 Gen 2,PF3KTQT1,,,pending_validation,0,pending,2026-04-24 19:50:50
+80,ITEA24374,Marketing - C. Alejandro / Banuet,L15 Gen 2,PF3BJ815,,,pending_validation,0,pending,2026-04-24 19:50:50
+81,ITEA24191,Michael Aguila Zumaya,L15 Gen 1,PF2KWXDJ,,,pending_validation,0,pending,2026-04-24 19:50:50
+82,ITEA24136,Michelle Emanuel Flores Hernandez,L15 Gen 2,PF2KTYB1,,,pending_validation,0,pending,2026-04-24 19:50:50
+83,IT006223,Jorge Jair Cuellar Trejo,L15 Gen 2,PF3KRHKB,,,pending_validation,0,pending,2026-04-24 19:50:50
+84,ITEA24365,Miguel Angel Orozco Casanova,L15 Gen 2,PF3B25WZ,,,pending_validation,0,pending,2026-04-24 19:50:50
+85,ITEA24303,Miguel Rivas Meza,Legion 7-15IMH05,MP258WQ2,,,pending_validation,0,pending,2026-04-24 19:50:50
+86,ITEA2486,Monica Soto Armas,L15 Gen 2,PF2KWWYG,,,pending_validation,0,pending,2026-04-24 19:50:50
+87,ITEA24413,Nataly Castro,L15 Gen 2,PF3B2REJ,,,pending_validation,0,pending,2026-04-24 19:50:50
+88,ITEA24344,Nataly Monserrat Breton Iglesias,L15 Gen 2,PF3B2YY5,,,pending_validation,0,pending,2026-04-24 19:50:50
+89,TXATLA0001,Oscar Lopez Escorcia,P14s,PF3XEXNR,,,pending_validation,0,pending,2026-04-24 19:50:50
+90,ITEA24293,Osvaldo Santillan Santillan,L15 Gen 2,PF336RHW,,,pending_validation,0,pending,2026-04-24 19:50:50
+91,IT006207,Paola Martinez Malacara,L15 Gen 2,PF3KTL1Q,,,pending_validation,0,pending,2026-04-24 19:50:50
+92,ITEA24404,Paulina de Jesus Manzano,L15 Gen 2,PF3BJ65P,,,pending_validation,0,pending,2026-04-24 19:50:50
+93,ITEA24387,Piero Mauricio Blanco Morales,L15 Gen 2,PF31Y4XW,,,pending_validation,0,pending,2026-04-24 19:50:50
+94,ITEA24131,Raymundo Ishbak Aguilar Rios,L15 Gen 2,PF31Y23K,,,pending_validation,0,pending,2026-04-24 19:50:50
+95,ITEA24395,Ricardo Lopez Acosta,L15 Gen 2,PF3B2CBQ,,,pending_validation,0,pending,2026-04-24 19:50:50
+96,ITEA24325,Ricardo Reyna Ramirez,L15 Gen 2,PF3B2PBW,,,pending_validation,0,pending,2026-04-24 19:50:50
+97,ITEA2474,Francisco Javier Hernandez,L15 Gen 1,PF2KT81C,,,pending_validation,0,pending,2026-04-24 19:50:50
+98,IT006298,Rosa Maria Pastelin Brito,L15 Gen 2,PF3KFW9A,,,pending_validation,0,pending,2026-04-24 19:50:50
+99,ITEA24143,Ruben Facundo Garcia,L15 Gen 2,PF2KWTAN,,,pending_validation,0,pending,2026-04-24 19:50:50
+100,TXATMX066,Salvador Efraín Cordero Camacho,Yoga L13,R91467LD,,,pending_validation,0,pending,2026-04-24 19:50:50
+101,IT006286,Sandra Angelica Tristan Jurado,L15 Gen 2,PF3KVF98,,,pending_validation,0,pending,2026-04-24 19:50:50
+102,ITEA24128,Sergio Efrain Campos Alcocer,L15 Gen 2,R911KQ7M,,,pending_validation,0,pending,2026-04-24 19:50:50
+103,ITEA24211,Sofia Cortes Filogonio,L15 Gen 2,PF32BPHW,,,pending_validation,0,pending,2026-04-24 19:50:50
+104,IT006267,Usiel Pamplona,L15 Gen 2,PF3KTT2N,,,pending_validation,0,pending,2026-04-24 19:50:50
+105,ITEA24396,Victoria Belinda Teran,L15 Gen 2,PF3B23S0,,,pending_validation,0,pending,2026-04-24 19:50:50
+106,TXATMXC002,Yanin Vicente Ojeda,P16v,PF58RL8S,,,pending_validation,0,pending,2026-04-24 19:50:50
+107,ITEA24372,Yoltic Franco Gomez,L15 Gen 2,PF3B23SC,,,pending_validation,0,pending,2026-04-24 19:50:50
+108,ITEA24376,Yoselin Noemi Marquez Paniagua,L15 Gen 2,PF3B4HEN,,,pending_validation,0,pending,2026-04-24 19:50:50
+109,ITEA24229,Javier Ruiz Cantu,L15 Gen 2,PF32C93K,,,pending_validation,0,pending,2026-04-24 19:50:50
