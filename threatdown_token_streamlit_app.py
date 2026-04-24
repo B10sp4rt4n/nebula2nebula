@@ -755,38 +755,65 @@ with tab_migration:
 
         selection_rows = [endpoint_to_selection_row(ep) for ep in st.session_state["listed_endpoints"]]
 
-        with st.expander("Match desde Excel en la nube", expanded=False):
+        with st.expander("Match desde Excel", expanded=True):
             st.caption(
-                "Carga una URL de Excel (OneDrive/SharePoint/Google export) para "
-                "hacer match contra endpoints del origen."
+                "Carga el Excel local o desde URL para hacer match contra los endpoints del origen."
             )
 
-            with st.form("cloud_excel_form"):
-                excel_url = st.text_input(
-                    "URL del Excel",
-                    value=st.session_state.get("cloud_excel_url", ""),
-                    placeholder="https://.../archivo.xlsx",
-                )
-                excel_sheet_name = st.text_input(
-                    "Hoja (opcional)",
-                    value=st.session_state.get("cloud_excel_sheet", ""),
-                    placeholder="Sheet1",
-                )
-                load_excel_submitted = st.form_submit_button("Traer Excel desde la nube", use_container_width=True)
+            # Detectar archivos Excel locales
+            import glob as _glob
+            local_xlsx = _glob.glob("*.xlsx") + _glob.glob("*.xls")
 
-            if load_excel_submitted:
-                with st.spinner("Descargando y leyendo Excel..."):
-                    loaded_df, excel_detail = load_cloud_excel(excel_url, sheet_name=excel_sheet_name)
-                if loaded_df is None:
-                    st.error("No se pudo cargar el Excel.")
-                    st.json(excel_detail)
+            tab_local, tab_url = st.tabs(["📁 Archivo local", "🌐 URL en la nube"])
+
+            with tab_local:
+                if local_xlsx:
+                    selected_local = st.selectbox("Selecciona el archivo Excel", options=local_xlsx)
+                    local_sheet = st.text_input("Hoja (opcional)", key="local_sheet", placeholder="Sheet1")
+                    if st.button("Cargar Excel local", use_container_width=True, key="load_local_excel"):
+                        try:
+                            read_kwargs = {}
+                            if local_sheet.strip():
+                                read_kwargs["sheet_name"] = local_sheet.strip()
+                            loaded_df = pd.read_excel(selected_local, **read_kwargs)
+                            if isinstance(loaded_df, dict):
+                                loaded_df = next(iter(loaded_df.values()))
+                            loaded_df = loaded_df.rename(columns=lambda c: str(c).strip())
+                            st.session_state["cloud_excel_df"] = loaded_df
+                            st.session_state["matched_machine_ids"] = []
+                            st.success(f"Excel cargado: {len(loaded_df)} filas, columnas: {list(loaded_df.columns)}")
+                        except Exception as exc:
+                            st.error(f"Error al cargar: {exc}")
                 else:
-                    st.success(f"Excel cargado: {excel_detail['rows']} filas")
-                    st.session_state["cloud_excel_df"] = loaded_df
-                    st.session_state["cloud_excel_url"] = excel_url.strip()
-                    st.session_state["cloud_excel_sheet"] = excel_sheet_name.strip()
-                    st.session_state["matched_machine_ids"] = []
-                    st.json(excel_detail)
+                    st.info("No hay archivos .xlsx en el directorio actual.")
+
+            with tab_url:
+                with st.form("cloud_excel_form"):
+                    excel_url = st.text_input(
+                        "URL del Excel",
+                        value=st.session_state.get("cloud_excel_url", ""),
+                        placeholder="https://.../archivo.xlsx",
+                    )
+                    excel_sheet_name = st.text_input(
+                        "Hoja (opcional)",
+                        value=st.session_state.get("cloud_excel_sheet", ""),
+                        placeholder="Sheet1",
+                    )
+                    load_excel_submitted = st.form_submit_button("Traer Excel desde la nube", use_container_width=True)
+
+                if load_excel_submitted:
+                    with st.spinner("Descargando y leyendo Excel..."):
+                        loaded_df, excel_detail = load_cloud_excel(excel_url, sheet_name=excel_sheet_name)
+                    if loaded_df is None:
+                        st.error("No se pudo cargar el Excel.")
+                        st.json(excel_detail)
+                    else:
+                        st.success(f"Excel cargado: {excel_detail['rows']} filas")
+                        st.session_state["cloud_excel_df"] = loaded_df
+                        st.session_state["cloud_excel_url"] = excel_url.strip()
+                        st.session_state["cloud_excel_sheet"] = excel_sheet_name.strip()
+                        st.session_state["matched_machine_ids"] = []
+                        st.json(excel_detail)
 
             excel_df = st.session_state.get("cloud_excel_df")
             if isinstance(excel_df, pd.DataFrame):
@@ -804,8 +831,11 @@ with tab_migration:
                         "endpoint_id",
                         "endpointid",
                         "id",
-                        "name",
+                        "host",
                         "hostname",
+                        "host name",
+                        "name",
+                        "nombre",
                     ]
                     normalized_columns = {normalize_text(c): c for c in excel_columns}
                     for pc in preferred:
@@ -823,8 +853,8 @@ with tab_migration:
                     source_match_field = st.selectbox(
                         "Comparar con campo en origen",
                         options=["machine_id", "id", "name"],
-                        index=0,
-                        help="Usa machine_id cuando el Excel tenga IDs de máquina. Usa id para endpoint id.",
+                        index=2 if normalize_text(excel_match_column) in ("host", "hostname", "name", "nombre") else 0,
+                        help="Usa name cuando el Excel tenga nombres de equipo. Usa machine_id para IDs.",
                     )
 
                     if st.button("Aplicar match Excel vs origen", use_container_width=True):
@@ -838,8 +868,98 @@ with tab_migration:
                             st.error(match_detail["error"])
                         else:
                             st.session_state["matched_machine_ids"] = [r.get("machine_id", "") for r in matched_rows]
-                            st.success(f"Match completado. Coincidencias: {match_detail['matched']}")
-                            st.json(match_detail)
+                            st.session_state["last_matched_rows"] = matched_rows
+                            st.session_state["last_match_detail"] = match_detail
+                            st.session_state["last_excel_df"] = excel_df
+                            total_excel = match_detail.get("excel_rows", len(excel_df))
+                            matched_n = match_detail.get("matched", 0)
+                            unmatched_n = match_detail.get("unmatched", 0)
+                            st.success(f"✅ Match completado: {matched_n}/{total_excel} coincidencias ({unmatched_n} sin match)")
+                            col_a, col_b = st.columns(2)
+                            col_a.metric("Con match", matched_n)
+                            col_b.metric("Sin match", unmatched_n)
+
+                            if unmatched_n > 0:
+                                matched_names = {normalize_text(r.get("name", "")) for r in matched_rows}
+                                unmatched_list = [
+                                    str(v) for v in excel_df[excel_match_column].tolist()
+                                    if normalize_text(v) not in matched_names
+                                ]
+                                with st.expander(f"⚠️ Hosts sin match ({unmatched_n})", expanded=False):
+                                    st.dataframe(pd.DataFrame({"host": unmatched_list}), use_container_width=True)
+
+                    # Botón Guardar a SQLite (disponible si hay match previo)
+                    if st.session_state.get("last_matched_rows") is not None:
+                        st.divider()
+                        if st.button("💾 Guardar resultados en SQLite (migration_tracking.db)", use_container_width=True, type="primary"):
+                            try:
+                                import sqlite3 as _sqlite3
+                                _matched = st.session_state["last_matched_rows"]
+                                _excel_df = st.session_state["last_excel_df"]
+                                _detail = st.session_state["last_match_detail"]
+                                _matched_names = {normalize_text(r.get("name", "")) for r in _matched}
+                                _matched_by_name = {normalize_text(r.get("name", "")): r for r in _matched}
+
+                                _db = "migration_tracking.db"
+                                _conn = _sqlite3.connect(_db)
+                                _cur = _conn.cursor()
+
+                                _cur.execute("DROP TABLE IF EXISTS migration_hosts")
+                                _cur.execute("""
+                                    CREATE TABLE migration_hosts (
+                                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                        host_name TEXT NOT NULL,
+                                        usuario TEXT,
+                                        modelo TEXT,
+                                        serial_number TEXT,
+                                        machine_id TEXT,
+                                        endpoint_id TEXT,
+                                        match_status TEXT DEFAULT 'pending',
+                                        migration_attempts INTEGER DEFAULT 0,
+                                        last_migration_date TIMESTAMP,
+                                        migration_status TEXT DEFAULT 'pending',
+                                        error_message TEXT,
+                                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                                    )
+                                """)
+                                _cur.execute("DROP TABLE IF EXISTS migration_attempts")
+                                _cur.execute("""
+                                    CREATE TABLE migration_attempts (
+                                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                        host_id INTEGER NOT NULL,
+                                        attempt_number INTEGER,
+                                        status TEXT,
+                                        error_message TEXT,
+                                        attempted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                        response_json TEXT,
+                                        FOREIGN KEY(host_id) REFERENCES migration_hosts(id)
+                                    )
+                                """)
+
+                                for _, row in _excel_df.iterrows():
+                                    _host = str(row.get("Host", row.iloc[0]))
+                                    _user = str(row.get("Nombre del Usuario", ""))
+                                    _model = str(row.get("Modelo", ""))
+                                    _sn = str(row.get("SN", ""))
+                                    _norm = normalize_text(_host)
+                                    if _norm in _matched_by_name:
+                                        _ep = _matched_by_name[_norm]
+                                        _cur.execute(
+                                            "INSERT INTO migration_hosts (host_name, usuario, modelo, serial_number, machine_id, endpoint_id, match_status) VALUES (?,?,?,?,?,?,?)",
+                                            (_host, _user, _model, _sn, _ep.get("machine_id",""), _ep.get("id",""), "matched")
+                                        )
+                                    else:
+                                        _cur.execute(
+                                            "INSERT INTO migration_hosts (host_name, usuario, modelo, serial_number, match_status) VALUES (?,?,?,?,?)",
+                                            (_host, _user, _model, _sn, "not_found")
+                                        )
+
+                                _conn.commit()
+                                _conn.close()
+                                st.success(f"✅ Guardado en {_db} — {len(_excel_df)} hosts, {_detail.get('matched',0)} con match, {_detail.get('unmatched',0)} sin match")
+                            except Exception as _exc:
+                                st.error(f"Error al guardar: {_exc}")
 
         matched_machine_ids = set(st.session_state.get("matched_machine_ids", []))
         if matched_machine_ids:
