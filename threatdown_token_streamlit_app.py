@@ -2,6 +2,7 @@ import base64
 import csv
 import json
 import os
+import sqlite3
 from io import BytesIO
 from io import StringIO
 from typing import Optional, Tuple
@@ -44,6 +45,14 @@ DEFAULT_CANDIDATE_PATHS = [
     "/nebula/v1/hosts",
     "/v1/endpoints",
 ]
+DEFAULT_ONEVIEW_API_BASE_URL = os.getenv("ONEVIEW_API_BASE_URL", "https://api.malwarebytes.com")
+DEFAULT_ONEVIEW_TOKEN_URL = os.getenv(
+    "ONEVIEW_TOKEN_URL",
+    "https://api.malwarebytes.com/oneview/oauth2/token",
+)
+DEFAULT_ONEVIEW_SCOPE = os.getenv("ONEVIEW_SCOPE", "read write execute")
+DEFAULT_EDRON_CLIENT_ID = os.getenv("TD_CLIENT_ID_2", os.getenv("TD_CLIENT_ID", ""))
+DEFAULT_EDRON_CLIENT_SECRET = os.getenv("TD_CLIENT_SECRET_2", os.getenv("TD_CLIENT_SECRET", ""))
 
 
 st.set_page_config(page_title="ThreatDown Token Viewer", page_icon="🔐", layout="centered")
@@ -416,6 +425,273 @@ def build_migration_payload_variants(selected_rows: list, destination_account_to
     return clean_variants
 
 
+def dataframe_to_excel_bytes(df: pd.DataFrame) -> bytes:
+    buffer = BytesIO()
+    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False, sheet_name="endpoints")
+    return buffer.getvalue()
+
+
+def normalize_oneview_base_url(api_base_url: str) -> str:
+    base = (api_base_url or DEFAULT_ONEVIEW_API_BASE_URL).strip().rstrip("/")
+    return base[:-8] if base.endswith("/oneview") else base
+
+
+def get_oneview_sites(access_token: str, api_base_url: str) -> Tuple[Optional[list], dict]:
+    base = normalize_oneview_base_url(api_base_url)
+    url = f"{base}/oneview/v1/sites"
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Accept": "application/json",
+    }
+
+    try:
+        response = requests.get(url, headers=headers, timeout=30)
+        response.raise_for_status()
+        payload = response.json()
+        sites = extract_items(payload)
+        if not sites and isinstance(payload, dict):
+            raw_sites = payload.get("sites")
+            if isinstance(raw_sites, list):
+                sites = [item for item in raw_sites if isinstance(item, dict)]
+        return sites, {"url": url, "count": len(sites)}
+    except requests.RequestException as exc:
+        detail = {"error": str(exc), "url": url}
+        if getattr(exc, "response", None) is not None:
+            try:
+                detail["response_json"] = exc.response.json()
+            except Exception:
+                detail["response_text"] = exc.response.text
+        return None, detail
+
+
+def get_oneview_endpoints(
+    access_token: str,
+    api_base_url: str,
+    account_ids: list,
+    page_size: int = 200,
+    max_pages: int = 0,
+) -> Tuple[Optional[list], dict]:
+    base = normalize_oneview_base_url(api_base_url)
+    url = f"{base}/oneview/v1/endpoints"
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+    }
+
+    all_items = []
+    next_cursor = ""
+    page = 0
+
+    try:
+        while True:
+            page += 1
+            body = {
+                "account_ids": account_ids,
+                "page_size": int(page_size),
+            }
+            if next_cursor:
+                body["next_cursor"] = next_cursor
+
+            response = requests.post(url, headers=headers, json=body, timeout=60)
+            response.raise_for_status()
+
+            payload = response.json()
+            items = []
+            if isinstance(payload, dict):
+                raw = payload.get("endpoints")
+                if isinstance(raw, list):
+                    items = [item for item in raw if isinstance(item, dict)]
+
+            all_items.extend(items)
+            next_cursor = payload.get("next_cursor") if isinstance(payload, dict) else ""
+
+            if not next_cursor:
+                break
+            if max_pages and page >= max_pages:
+                break
+
+        return all_items, {
+            "url": url,
+            "total": len(all_items),
+            "pages_fetched": page,
+            "account_ids_count": len(account_ids),
+        }
+    except requests.RequestException as exc:
+        detail = {
+            "error": str(exc),
+            "url": url,
+            "pages_fetched": page,
+            "items_fetched": len(all_items),
+        }
+        if getattr(exc, "response", None) is not None:
+            try:
+                detail["response_json"] = exc.response.json()
+            except Exception:
+                detail["response_text"] = exc.response.text
+        return None, detail
+
+
+def oneview_endpoint_to_selection_row(ep: dict) -> dict:
+    machine = ep.get("machine", {}) if isinstance(ep.get("machine"), dict) else {}
+    agent = ep.get("agent", {}) if isinstance(ep.get("agent"), dict) else {}
+
+    display_name = (
+        ep.get("display_name")
+        or agent.get("host_name")
+        or agent.get("fully_qualified_host_name")
+        or machine.get("id")
+        or ""
+    )
+
+    return {
+        "migrar": False,
+        "display_name": str(display_name),
+        "machine_id": str(machine.get("id", "")),
+        "account_id": str(machine.get("account_id", "")),
+        "connected": bool(ep.get("connected", False)),
+        "last_seen_at": str(machine.get("last_day_seen", "")),
+        "policy_name": str(machine.get("policy_name", "")),
+        "group_name": str(machine.get("group_name", "")),
+    }
+
+
+def init_edron_tracking_table(db_path: str = "oneview_to_nebula.db") -> None:
+    conn = sqlite3.connect(db_path)
+    cur = conn.cursor()
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS edron_migration_tracking (
+            consecutivo INTEGER PRIMARY KEY,
+            machine_id TEXT UNIQUE,
+            display_name TEXT,
+            account_id TEXT,
+            policy_name TEXT,
+            group_name TEXT,
+            last_seen_at TEXT,
+            migrado INTEGER DEFAULT 0,
+            selected_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            migrated_at TEXT
+        )
+        """
+    )
+    conn.commit()
+    conn.close()
+
+
+def save_edron_selection_with_consecutivos(selected_rows: list, db_path: str = "oneview_to_nebula.db") -> dict:
+    init_edron_tracking_table(db_path)
+    conn = sqlite3.connect(db_path)
+    cur = conn.cursor()
+
+    max_seq = cur.execute("SELECT COALESCE(MAX(consecutivo), 0) FROM edron_migration_tracking").fetchone()[0]
+    inserted = 0
+    updated = 0
+    skipped = 0
+
+    for row in selected_rows:
+        machine_id = str(row.get("machine_id", "")).strip()
+        if not machine_id:
+            skipped += 1
+            continue
+
+        existing = cur.execute(
+            "SELECT consecutivo FROM edron_migration_tracking WHERE machine_id = ?",
+            (machine_id,),
+        ).fetchone()
+
+        values = (
+            str(row.get("display_name", "")),
+            str(row.get("account_id", "")),
+            str(row.get("policy_name", "")),
+            str(row.get("group_name", "")),
+            str(row.get("last_seen_at", "")),
+        )
+
+        if existing:
+            cur.execute(
+                """
+                UPDATE edron_migration_tracking
+                SET display_name = ?,
+                    account_id = ?,
+                    policy_name = ?,
+                    group_name = ?,
+                    last_seen_at = ?
+                WHERE machine_id = ?
+                """,
+                (*values, machine_id),
+            )
+            updated += 1
+        else:
+            max_seq += 1
+            cur.execute(
+                """
+                INSERT INTO edron_migration_tracking (
+                    consecutivo, machine_id, display_name, account_id, policy_name, group_name, last_seen_at, migrado
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, 0)
+                """,
+                (max_seq, machine_id, *values),
+            )
+            inserted += 1
+
+    conn.commit()
+    total = cur.execute("SELECT COUNT(*) FROM edron_migration_tracking").fetchone()[0]
+    conn.close()
+
+    return {
+        "inserted": inserted,
+        "updated": updated,
+        "skipped": skipped,
+        "total_tracking": total,
+    }
+
+
+def load_edron_tracking_df(db_path: str = "oneview_to_nebula.db") -> pd.DataFrame:
+    init_edron_tracking_table(db_path)
+    conn = sqlite3.connect(db_path)
+    query = """
+        SELECT
+            consecutivo,
+            machine_id,
+            display_name,
+            account_id,
+            policy_name,
+            group_name,
+            last_seen_at,
+            migrado,
+            selected_at,
+            migrated_at
+        FROM edron_migration_tracking
+        ORDER BY consecutivo
+    """
+    df = pd.read_sql_query(query, conn)
+    conn.close()
+    if not df.empty:
+        df["migrado"] = df["migrado"].astype(bool)
+    return df
+
+
+def update_edron_tracking_migrado(flags: list, db_path: str = "oneview_to_nebula.db") -> None:
+    init_edron_tracking_table(db_path)
+    conn = sqlite3.connect(db_path)
+    cur = conn.cursor()
+    for row in flags:
+        consecutivo = int(row.get("consecutivo", 0))
+        migrado = bool(row.get("migrado", False))
+        cur.execute(
+            """
+            UPDATE edron_migration_tracking
+            SET migrado = ?,
+                migrated_at = CASE WHEN ? = 1 THEN CURRENT_TIMESTAMP ELSE NULL END
+            WHERE consecutivo = ?
+            """,
+            (1 if migrado else 0, 1 if migrado else 0, consecutivo),
+        )
+    conn.commit()
+    conn.close()
+
+
 def run_migration_request(
     access_token: str,
     api_base_url: str,
@@ -469,6 +745,112 @@ def run_migration_request(
             attempts.append(err)
 
     return False, {"url": url, "attempts": attempts}
+
+
+def extract_job_ids_from_batch_results(batch_results: list) -> list:
+    job_ids = []
+    for batch in batch_results:
+        result = batch.get("result", {}) if isinstance(batch, dict) else {}
+        attempts = result.get("attempts", []) if isinstance(result, dict) else []
+        for attempt in attempts:
+            response_body = attempt.get("response") if isinstance(attempt, dict) else None
+            if isinstance(response_body, dict):
+                jobs = response_body.get("jobs")
+                if isinstance(jobs, list):
+                    for job in jobs:
+                        if isinstance(job, dict):
+                            job_id = str(job.get("job_id", "")).strip()
+                            if job_id and job_id not in job_ids:
+                                job_ids.append(job_id)
+    return job_ids
+
+
+def get_jobs_status_report(
+    access_token: str,
+    api_base_url: str,
+    origin_account_id: str,
+    job_ids: list,
+) -> Tuple[list, dict]:
+    base_url = api_base_url.strip() or API_BASE_URL
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Accept": "application/json",
+    }
+    if origin_account_id.strip():
+        headers["accountid"] = origin_account_id.strip()
+
+    rows = []
+    for job_id in job_ids:
+        jid = str(job_id).strip()
+        if not jid:
+            continue
+
+        url = f"{base_url}/nebula/v1/jobs/{jid}"
+        status = "UNKNOWN"
+        machine_id = ""
+        machine_name = ""
+        issued_at = ""
+        expires_at = ""
+        detail = ""
+        status_code = None
+
+        try:
+            response = requests.get(url, headers=headers, timeout=30)
+            status_code = response.status_code
+            content_type = response.headers.get("Content-Type", "")
+            if "application/json" in content_type.lower():
+                payload = response.json()
+            else:
+                payload = {"raw_response": response.text}
+
+            if 200 <= response.status_code < 300 and isinstance(payload, dict):
+                status = str(
+                    payload.get("status")
+                    or payload.get("state")
+                    or payload.get("job_status")
+                    or payload.get("result")
+                    or "UNKNOWN"
+                ).upper()
+                machine_id = str(payload.get("machine_id", ""))
+                machine_name = str(payload.get("machine_name", ""))
+                issued_at = str(payload.get("issued_at", ""))
+                expires_at = str(payload.get("expires_at", ""))
+            else:
+                status = f"HTTP_{response.status_code}"
+                detail = str(payload)[:300]
+        except requests.RequestException as exc:
+            status = "REQUEST_ERROR"
+            detail = str(exc)
+
+        rows.append(
+            {
+                "job_id": jid,
+                "status": status,
+                "machine_id": machine_id,
+                "machine_name": machine_name,
+                "issued_at": issued_at,
+                "expires_at": expires_at,
+                "http_status": status_code,
+                "detail": detail,
+            }
+        )
+
+    total = len(rows)
+    completed = sum(1 for r in rows if r.get("status") == "COMPLETED")
+    pending = sum(1 for r in rows if r.get("status") == "PENDING")
+    failed = sum(1 for r in rows if r.get("status") in {"FAILED", "ERROR", "CANCELLED"})
+    other = max(total - completed - pending - failed, 0)
+    completion_pct = round((completed / total) * 100, 2) if total else 0.0
+
+    summary = {
+        "total_jobs": total,
+        "completed": completed,
+        "pending": pending,
+        "failed": failed,
+        "other": other,
+        "completion_pct": completion_pct,
+    }
+    return rows, summary
 
 
 def probe_move_paths(
@@ -591,7 +973,7 @@ def probe_paths(access_token: str, candidate_paths_text: str, api_base_url: str 
 st.title("Nebula Migration Assistant")
 st.caption("Pestana unica para seleccionar endpoints y preparar lote de migracion.")
 
-tab_migration = st.tabs(["Migracion"])[0]
+tab_migration, tab_edron = st.tabs(["Migracion", "Edron OneView"])
 
 with tab_migration:
     with st.expander("Recomendación de seguridad", expanded=True):
@@ -1074,7 +1456,7 @@ with tab_migration:
             )
             destination_account_token = st.text_input(
                 "Destination Account Token",
-                value=DEFAULT_DESTINATION_ACCOUNT_TOKEN,
+                value=st.session_state.get("target_destination_account_token", DEFAULT_DESTINATION_ACCOUNT_TOKEN),
                 type="password",
             )
             move_path = st.text_input("Jobs Path", value=DEFAULT_TARGET_MOVE_PATH)
@@ -1181,3 +1563,393 @@ with tab_migration:
                             "batches": batch_results,
                         }
                     )
+
+                    # Persistir el ultimo resultado para reporte vivo de estado.
+                    st.session_state["last_batch_results"] = batch_results
+                    st.session_state["last_migration_context"] = {
+                        "access_token": origin_access_token_for_move.strip(),
+                        "api_base_url": origin_api_base_url_for_move.strip() or API_BASE_URL,
+                        "source_account_id": source_account_id_for_move.strip(),
+                    }
+                    st.session_state["last_job_ids"] = extract_job_ids_from_batch_results(batch_results)
+
+        st.divider()
+        st.subheader("5) Reporte vivo de migración")
+        st.caption("Consulta el estado real de los jobs y actualiza el porcentaje completado con el botón Refresh.")
+
+        live_ctx = st.session_state.get("last_migration_context", {})
+        default_live_token = live_ctx.get("access_token", st.session_state.get("last_access_token", ""))
+        default_live_api_base = live_ctx.get("api_base_url", st.session_state.get("source_api_base_url", API_BASE_URL))
+        default_live_account = live_ctx.get("source_account_id", DEFAULT_SOURCE_ACCOUNT_ID)
+        default_live_job_ids = st.session_state.get("last_job_ids", [])
+
+        live_access_token = st.text_input(
+            "Access Token para reporte",
+            value=default_live_token,
+            type="password",
+            key="live_report_access_token",
+        )
+        live_api_base_url = st.text_input(
+            "API Base URL para reporte",
+            value=default_live_api_base,
+            key="live_report_api_base",
+        )
+        live_account_id = st.text_input(
+            "Source Account ID para reporte",
+            value=default_live_account,
+            key="live_report_account_id",
+        )
+        live_job_ids_text = st.text_area(
+            "Job IDs (uno por línea)",
+            value="\n".join(default_live_job_ids),
+            height=180,
+            key="live_report_job_ids",
+        )
+
+        refresh_jobs = st.button("Refresh estado de jobs", use_container_width=True, type="primary")
+
+        if refresh_jobs:
+            job_ids = []
+            for line in live_job_ids_text.splitlines():
+                jid = line.strip()
+                if jid and jid not in job_ids:
+                    job_ids.append(jid)
+
+            if not live_access_token.strip():
+                st.error("Falta Access Token para consultar estado de jobs.")
+            elif not job_ids:
+                st.error("Faltan Job IDs para consultar el reporte.")
+            else:
+                with st.spinner("Consultando estado de jobs..."):
+                    report_rows, report_summary = get_jobs_status_report(
+                        access_token=live_access_token.strip(),
+                        api_base_url=live_api_base_url.strip() or API_BASE_URL,
+                        origin_account_id=live_account_id.strip(),
+                        job_ids=job_ids,
+                    )
+
+                st.session_state["live_jobs_report_rows"] = report_rows
+                st.session_state["live_jobs_report_summary"] = report_summary
+                st.session_state["last_job_ids"] = job_ids
+
+        if st.session_state.get("live_jobs_report_summary"):
+            summary = st.session_state["live_jobs_report_summary"]
+            col1, col2, col3, col4 = st.columns(4)
+            col1.metric("Total jobs", int(summary.get("total_jobs", 0)))
+            col2.metric("Completed", int(summary.get("completed", 0)))
+            col3.metric("Pending", int(summary.get("pending", 0)))
+            col4.metric("Failed", int(summary.get("failed", 0)))
+
+            completion_pct = float(summary.get("completion_pct", 0.0))
+            st.progress(min(max(completion_pct / 100.0, 0.0), 1.0), text=f"Completado: {completion_pct:.2f}%")
+
+            if st.session_state.get("live_jobs_report_rows"):
+                report_df = pd.DataFrame(st.session_state["live_jobs_report_rows"])
+                st.dataframe(report_df, use_container_width=True)
+
+with tab_edron:
+    st.subheader("Inventario OneView de Edron")
+    st.caption("Lista completa de equipos de Edron, seleccionable y exportable en CSV/XLSX.")
+
+    with st.expander("Destino Nebula (no registrado)", expanded=False):
+        st.caption("Configura aquí la consola destino sin usar .env. Se guarda en esta sesión.")
+        with st.form("edron_target_console_form"):
+            target_client_id_ad_hoc = st.text_input(
+                "Target Client ID",
+                value=st.session_state.get("target_client_id", DEFAULT_TARGET_CLIENT_ID),
+            )
+            target_client_secret_ad_hoc = st.text_input(
+                "Target Client Secret",
+                value=st.session_state.get("target_client_secret", DEFAULT_TARGET_CLIENT_SECRET),
+                type="password",
+            )
+            target_token_url_ad_hoc = st.text_input(
+                "Target Token URL",
+                value=st.session_state.get("target_token_url", DEFAULT_TARGET_TOKEN_URL),
+            )
+            target_scope_ad_hoc = st.text_input(
+                "Target Scope",
+                value=st.session_state.get("target_scope", DEFAULT_TARGET_SCOPE),
+            )
+            target_api_base_ad_hoc = st.text_input(
+                "Target API Base URL",
+                value=st.session_state.get("target_api_base_url", DEFAULT_TARGET_API_BASE_URL),
+            )
+            destination_account_token_ad_hoc = st.text_input(
+                "Destination Account Token",
+                value=st.session_state.get("target_destination_account_token", DEFAULT_DESTINATION_ACCOUNT_TOKEN),
+                type="password",
+                help="Token de cuenta destino usado por command.engine.changeaccounttoken.",
+            )
+            save_target_config = st.form_submit_button("Guardar configuración destino", use_container_width=True)
+
+        if save_target_config:
+            st.session_state["target_client_id"] = target_client_id_ad_hoc.strip()
+            st.session_state["target_client_secret"] = target_client_secret_ad_hoc.strip()
+            st.session_state["target_token_url"] = target_token_url_ad_hoc.strip()
+            st.session_state["target_scope"] = target_scope_ad_hoc.strip() or DEFAULT_TARGET_SCOPE
+            st.session_state["target_api_base_url"] = target_api_base_ad_hoc.strip() or DEFAULT_TARGET_API_BASE_URL
+            st.session_state["target_destination_account_token"] = destination_account_token_ad_hoc.strip()
+            st.success("Configuración de destino guardada para esta sesión.")
+
+        if st.button("Probar credenciales de destino", use_container_width=True):
+            target_client_id = st.session_state.get("target_client_id", "")
+            target_client_secret = st.session_state.get("target_client_secret", "")
+            target_token_url = st.session_state.get("target_token_url", DEFAULT_TARGET_TOKEN_URL)
+            target_scope = st.session_state.get("target_scope", DEFAULT_TARGET_SCOPE)
+
+            if not target_client_id or not target_client_secret:
+                st.error("Faltan Target Client ID/Secret para probar autenticación.")
+            else:
+                with st.spinner("Probando autenticación en consola destino..."):
+                    target_token, target_detail = get_token(
+                        target_client_id,
+                        target_client_secret,
+                        target_scope,
+                        token_url=target_token_url,
+                    )
+                if target_token:
+                    st.success("Autenticación de destino correcta.")
+                    st.session_state["target_access_token"] = target_token
+                else:
+                    st.error("No se pudo autenticar en la consola destino.")
+                    st.json(target_detail)
+
+    with st.form("edron_oneview_form"):
+        edron_client_id = st.text_input(
+            "Client ID",
+            value=DEFAULT_EDRON_CLIENT_ID,
+            placeholder="TD_CLIENT_ID_2",
+        )
+        edron_client_secret = st.text_input(
+            "Client Secret",
+            value=DEFAULT_EDRON_CLIENT_SECRET,
+            placeholder="TD_CLIENT_SECRET_2",
+            type="password",
+        )
+        edron_api_base = st.text_input(
+            "OneView API Base URL",
+            value=DEFAULT_ONEVIEW_API_BASE_URL,
+            help="Ejemplo: https://api.malwarebytes.com",
+        )
+        edron_token_url = st.text_input(
+            "OneView Token URL",
+            value=DEFAULT_ONEVIEW_TOKEN_URL,
+            help="Ejemplo: https://api.malwarebytes.com/oneview/oauth2/token",
+        )
+        edron_scope = st.text_input("Scope", value=DEFAULT_ONEVIEW_SCOPE)
+        edron_page_size = st.number_input("Page size", min_value=1, max_value=500, value=200, step=1)
+        edron_max_pages = st.number_input("Max pages (0 = sin límite)", min_value=0, max_value=1000, value=0, step=1)
+        only_edron = st.checkbox("Filtrar solo sites con 'Edron' en company_name", value=True)
+
+        load_edron = st.form_submit_button("Cargar equipos de Edron", use_container_width=True)
+
+    if load_edron:
+        if not edron_client_id.strip() or not edron_client_secret.strip():
+            st.error("Faltan credenciales de Edron (Client ID / Client Secret).")
+        else:
+            with st.spinner("Obteniendo token OneView..."):
+                token, token_detail = get_token(
+                    edron_client_id.strip(),
+                    edron_client_secret.strip(),
+                    edron_scope.strip() or DEFAULT_ONEVIEW_SCOPE,
+                    token_url=edron_token_url.strip() or DEFAULT_ONEVIEW_TOKEN_URL,
+                )
+
+            if not token:
+                st.error("No se pudo obtener token de OneView.")
+                st.json(token_detail)
+            else:
+                with st.spinner("Consultando sites y endpoints..."):
+                    sites, sites_detail = get_oneview_sites(
+                        access_token=token,
+                        api_base_url=edron_api_base.strip() or DEFAULT_ONEVIEW_API_BASE_URL,
+                    )
+
+                if sites is None:
+                    st.error("No se pudo obtener /oneview/v1/sites.")
+                    st.json(sites_detail)
+                else:
+                    site_rows = []
+                    for site in sites:
+                        account_id = str(site.get("nebula_account_id", "")).strip()
+                        company_name = str(site.get("company_name", "")).strip()
+                        if account_id:
+                            site_rows.append({
+                                "account_id": account_id,
+                                "company_name": company_name,
+                            })
+
+                    if only_edron:
+                        filtered_sites = [
+                            row for row in site_rows if "edron" in row.get("company_name", "").lower()
+                        ]
+                    else:
+                        filtered_sites = site_rows
+
+                    account_ids = list(dict.fromkeys([row["account_id"] for row in filtered_sites if row.get("account_id")]))
+
+                    if not account_ids:
+                        st.error("No se encontraron nebula_account_id válidos para consultar endpoints.")
+                        st.json({"sites_detail": sites_detail, "sites_found": site_rows})
+                    else:
+                        endpoints, endpoints_detail = get_oneview_endpoints(
+                            access_token=token,
+                            api_base_url=edron_api_base.strip() or DEFAULT_ONEVIEW_API_BASE_URL,
+                            account_ids=account_ids,
+                            page_size=int(edron_page_size),
+                            max_pages=int(edron_max_pages),
+                        )
+
+                        if endpoints is None:
+                            st.error("No se pudieron obtener endpoints de OneView.")
+                            st.json(endpoints_detail)
+                        else:
+                            st.session_state["edron_sites"] = filtered_sites
+                            st.session_state["edron_oneview_endpoints"] = endpoints
+                            st.session_state["edron_account_ids"] = account_ids
+                            st.success(f"Equipos cargados: {len(endpoints)}")
+                            st.json({
+                                "sites_total": len(site_rows),
+                                "sites_filtrados": len(filtered_sites),
+                                "account_ids": account_ids,
+                                "endpoints_detail": endpoints_detail,
+                            })
+
+    edron_endpoints = st.session_state.get("edron_oneview_endpoints", [])
+    if edron_endpoints:
+        rows = [oneview_endpoint_to_selection_row(ep) for ep in edron_endpoints]
+        edron_df = pd.DataFrame(rows)
+
+        st.divider()
+        st.subheader("Lista de equipos de Edron")
+        st.caption("Selecciona los equipos que quieras usar en la siguiente etapa de migración.")
+
+        edited_df = st.data_editor(
+            edron_df,
+            hide_index=True,
+            use_container_width=True,
+            column_config={
+                "migrar": st.column_config.CheckboxColumn("Seleccionar"),
+                "display_name": st.column_config.TextColumn("Equipo"),
+                "machine_id": st.column_config.TextColumn("Machine ID"),
+                "account_id": st.column_config.TextColumn("Account ID"),
+                "connected": st.column_config.CheckboxColumn("Conectado"),
+                "last_seen_at": st.column_config.TextColumn("Last seen"),
+                "policy_name": st.column_config.TextColumn("Policy"),
+                "group_name": st.column_config.TextColumn("Group"),
+            },
+            disabled=["display_name", "machine_id", "account_id", "connected", "last_seen_at", "policy_name", "group_name"],
+            key="edron_selector_editor",
+        )
+
+        selected_df = edited_df[edited_df["migrar"] == True]  # noqa: E712
+        st.info(f"Seleccionados: {len(selected_df)} de {len(edited_df)}")
+
+        if not selected_df.empty:
+            selected_export_df = selected_df.drop(columns=["migrar"])
+            if st.button("Guardar selección con consecutivos (SQLite)", use_container_width=True, type="primary"):
+                save_detail = save_edron_selection_with_consecutivos(selected_export_df.to_dict(orient="records"))
+                st.success(
+                    "Lista guardada en oneview_to_nebula.db: "
+                    f"nuevos={save_detail['inserted']}, actualizados={save_detail['updated']}, "
+                    f"omitidos={save_detail['skipped']}, total_tracking={save_detail['total_tracking']}"
+                )
+
+            st.download_button(
+                "Exportar seleccionados (CSV)",
+                data=selected_export_df.to_csv(index=False),
+                file_name="edron_endpoints_selected.csv",
+                mime="text/csv",
+                use_container_width=True,
+            )
+            st.download_button(
+                "Exportar seleccionados (XLSX)",
+                data=dataframe_to_excel_bytes(selected_export_df),
+                file_name="edron_endpoints_selected.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True,
+            )
+
+            st.session_state["edron_selected_rows"] = selected_export_df.to_dict(orient="records")
+        else:
+            st.session_state["edron_selected_rows"] = []
+
+        st.download_button(
+            "Exportar todos (CSV)",
+            data=edron_df.drop(columns=["migrar"]).to_csv(index=False),
+            file_name="edron_endpoints_all.csv",
+            mime="text/csv",
+            use_container_width=True,
+        )
+        st.download_button(
+            "Exportar todos (XLSX)",
+            data=dataframe_to_excel_bytes(edron_df.drop(columns=["migrar"])),
+            file_name="edron_endpoints_all.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True,
+        )
+
+        st.divider()
+        st.subheader("Tracking de migración (consecutivos)")
+        tracking_df = load_edron_tracking_df()
+        if tracking_df.empty:
+            st.info("Aún no hay lista guardada. Selecciona equipos y usa 'Guardar selección con consecutivos (SQLite)'.")
+        else:
+            st.caption("Marca la columna 'migrado' para llevar control de equipos ya migrados.")
+            tracking_edited = st.data_editor(
+                tracking_df,
+                hide_index=True,
+                use_container_width=True,
+                column_config={
+                    "consecutivo": st.column_config.NumberColumn("Consecutivo"),
+                    "machine_id": st.column_config.TextColumn("Machine ID"),
+                    "display_name": st.column_config.TextColumn("Equipo"),
+                    "account_id": st.column_config.TextColumn("Account ID"),
+                    "policy_name": st.column_config.TextColumn("Policy"),
+                    "group_name": st.column_config.TextColumn("Group"),
+                    "last_seen_at": st.column_config.TextColumn("Last seen"),
+                    "migrado": st.column_config.CheckboxColumn("Migrado"),
+                    "selected_at": st.column_config.TextColumn("Agregado"),
+                    "migrated_at": st.column_config.TextColumn("Fecha migrado"),
+                },
+                disabled=[
+                    "consecutivo",
+                    "machine_id",
+                    "display_name",
+                    "account_id",
+                    "policy_name",
+                    "group_name",
+                    "last_seen_at",
+                    "selected_at",
+                    "migrated_at",
+                ],
+                key="edron_tracking_editor",
+            )
+
+            col_t1, col_t2 = st.columns(2)
+            if col_t1.button("Guardar cambios de estado", use_container_width=True):
+                update_edron_tracking_migrado(tracking_edited.to_dict(orient="records"))
+                st.success("Estados de migración actualizados.")
+
+            if col_t2.button("Recargar tracking", use_container_width=True):
+                st.rerun()
+
+            migrados = int(tracking_edited[tracking_edited["migrado"] == True].shape[0])  # noqa: E712
+            total = int(tracking_edited.shape[0])
+            st.info(f"Migrados: {migrados} de {total}")
+
+            st.download_button(
+                "Exportar tracking (CSV)",
+                data=tracking_edited.to_csv(index=False),
+                file_name="edron_migration_tracking.csv",
+                mime="text/csv",
+                use_container_width=True,
+            )
+            st.download_button(
+                "Exportar tracking (XLSX)",
+                data=dataframe_to_excel_bytes(tracking_edited),
+                file_name="edron_migration_tracking.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True,
+            )
