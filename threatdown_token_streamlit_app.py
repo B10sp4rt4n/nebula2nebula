@@ -16,6 +16,92 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
+# =============================================================================
+# MULTI-MIGRATION SUPPORT
+# =============================================================================
+def load_available_migrations() -> dict:
+    """
+    Detecta todas las migraciones configuradas en el .env.
+    Retorna un dict: {migration_id: {name, source_config, target_config}}
+    """
+    migrations = {}
+    env_keys = os.environ.keys()
+    
+    # Buscar todas las migraciones (MIGRATION_1_NAME, MIGRATION_2_NAME, etc.)
+    for key in env_keys:
+        if key.startswith("MIGRATION_") and key.endswith("_NAME"):
+            # Extraer el número de migración
+            parts = key.split("_")
+            if len(parts) >= 3:
+                try:
+                    migration_num = int(parts[1])
+                    migration_name = os.getenv(key, f"Migration {migration_num}")
+                    
+                    prefix = f"MIGRATION_{migration_num}_"
+                    
+                    # Cargar configuración SOURCE
+                    source_config = {
+                        "api_base_url": os.getenv(f"{prefix}SOURCE_API_BASE_URL", "https://api.malwarebytes.com"),
+                        "token_url": os.getenv(f"{prefix}SOURCE_TOKEN_URL", "https://api.malwarebytes.com/oauth2/token"),
+                        "client_id": os.getenv(f"{prefix}SOURCE_CLIENT_ID", ""),
+                        "client_secret": os.getenv(f"{prefix}SOURCE_CLIENT_SECRET", ""),
+                        "account_id": os.getenv(f"{prefix}SOURCE_ACCOUNT_ID", ""),
+                        "scope": os.getenv(f"{prefix}SOURCE_SCOPE", "read write execute"),
+                        "endpoints_path": os.getenv(f"{prefix}SOURCE_ENDPOINTS_PATH", "/nebula/v1/endpoints"),
+                    }
+                    
+                    # Cargar configuración TARGET
+                    target_config = {
+                        "api_base_url": os.getenv(f"{prefix}TARGET_API_BASE_URL", "https://api.malwarebytes.com"),
+                        "token_url": os.getenv(f"{prefix}TARGET_TOKEN_URL", "https://api.malwarebytes.com/oauth2/token"),
+                        "client_id": os.getenv(f"{prefix}TARGET_CLIENT_ID", ""),
+                        "client_secret": os.getenv(f"{prefix}TARGET_CLIENT_SECRET", ""),
+                        "account_id": os.getenv(f"{prefix}TARGET_ACCOUNT_ID", ""),
+                        "scope": os.getenv(f"{prefix}TARGET_SCOPE", "read write execute"),
+                        "move_endpoint_path": os.getenv(f"{prefix}TARGET_MOVE_ENDPOINT_PATH", "/nebula/v1/jobs"),
+                    }
+                    
+                    migrations[migration_num] = {
+                        "name": migration_name,
+                        "source": source_config,
+                        "target": target_config,
+                    }
+                except ValueError:
+                    pass
+    
+    return migrations
+
+
+def get_active_migration_config() -> Tuple[int, dict]:
+    """Retorna (migration_id, config) de la migración activa"""
+    migrations = load_available_migrations()
+    
+    if not migrations:
+        return None, {}
+    
+    # Obtener migración activa del .env o usar la primera disponible
+    active_id = int(os.getenv("ACTIVE_MIGRATION", min(migrations.keys())))
+    
+    if active_id in migrations:
+        return active_id, migrations[active_id]
+    else:
+        # Fallback a la primera disponible
+        active_id = min(migrations.keys())
+        return active_id, migrations[active_id]
+
+
+# Cargar configuración de migraciones disponibles
+_available_migrations = load_available_migrations()
+_active_migration_id, _active_migration = get_active_migration_config()
+
+# Si hay múltiples migraciones, ofrecer selector en sidebar
+if len(_available_migrations) > 1:
+    if "selected_migration" not in st.session_state:
+        st.session_state.selected_migration = _active_migration_id
+else:
+    st.session_state.selected_migration = _active_migration_id if _active_migration_id else 1
+
+
 TOKEN_URL = os.getenv("SOURCE_TOKEN_URL", "https://api.threatdown.com/oauth2/token")
 API_BASE_URL = os.getenv("SOURCE_API_BASE_URL", "https://api.threatdown.com")
 DEFAULT_SCOPE = "read write execute"
@@ -123,6 +209,146 @@ def get_endpoint_by_id(access_token: str, endpoint_id: str) -> Tuple[Optional[di
             except Exception:
                 detail["response_text"] = exc.response.text
         return None, detail
+
+
+@st.cache_data(show_spinner=False, ttl=300)
+def get_nebula_account_context(
+    client_id: str,
+    client_secret: str,
+    scope: str,
+    token_url: str,
+    api_base_url: str,
+    account_id: str = "",
+) -> Tuple[Optional[dict], dict]:
+    token, token_detail = get_token(client_id, client_secret, scope, token_url=token_url)
+    if not token:
+        return None, {"stage": "token", **token_detail}
+
+    url = f"{(api_base_url or DEFAULT_TARGET_API_BASE_URL).strip().rstrip('/')}/nebula/v1/account"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/json",
+    }
+    if account_id.strip():
+        headers["accountid"] = account_id.strip()
+
+    try:
+        response = requests.get(url, headers=headers, timeout=30)
+        content_type = response.headers.get("Content-Type", "")
+        if "application/json" in content_type.lower():
+            payload = response.json()
+        else:
+            payload = {"raw_response": response.text}
+
+        response.raise_for_status()
+        if isinstance(payload, dict):
+            return payload, {"url": url, "account_id": payload.get("id", account_id)}
+        return None, {"url": url, "error": "Respuesta inesperada de /nebula/v1/account"}
+    except requests.RequestException as exc:
+        detail = {"stage": "account", "error": str(exc), "url": url}
+        if getattr(exc, "response", None) is not None:
+            try:
+                detail["response_json"] = exc.response.json()
+            except Exception:
+                detail["response_text"] = exc.response.text
+        return None, detail
+
+
+def build_console_catalog() -> list:
+    consoles = []
+
+    source_console = {
+        "key": "source_nebula",
+        "label": os.getenv("SOURCE_CONSOLE_NAME", "SOURCE"),
+        "kind": "Nebula",
+        "api_base_url": st.session_state.get("source_api_base_url", os.getenv("SOURCE_API_BASE_URL", API_BASE_URL)).strip(),
+        "token_url": st.session_state.get("source_token_url", os.getenv("SOURCE_TOKEN_URL", TOKEN_URL)).strip(),
+        "client_id": os.getenv("THREATDOWN_CLIENT_ID", os.getenv("SOURCE_CLIENT_ID", "")).strip(),
+        "client_secret": os.getenv("THREATDOWN_CLIENT_SECRET", os.getenv("SOURCE_CLIENT_SECRET", "")).strip(),
+        "account_id": os.getenv("SOURCE_ACCOUNT_ID", "").strip(),
+        "scope": os.getenv("SOURCE_SCOPE", DEFAULT_SCOPE).strip() or DEFAULT_SCOPE,
+        "account_token": os.getenv("SOURCE_ACCOUNT_TOKEN", "").strip(),
+    }
+    if any(source_console[field] for field in ("client_id", "account_id", "api_base_url")):
+        consoles.append(source_console)
+
+    target_console = {
+        "key": "target_nebula",
+        "label": os.getenv("TARGET_CONSOLE_NAME", "TARGET"),
+        "kind": "Nebula",
+        "api_base_url": st.session_state.get("target_api_base_url", os.getenv("TARGET_API_BASE_URL", DEFAULT_TARGET_API_BASE_URL)).strip(),
+        "token_url": st.session_state.get("target_token_url", os.getenv("TARGET_TOKEN_URL", DEFAULT_TARGET_TOKEN_URL)).strip(),
+        "client_id": st.session_state.get("target_client_id", os.getenv("TARGET_CLIENT_ID", "")).strip(),
+        "client_secret": st.session_state.get("target_client_secret", os.getenv("TARGET_CLIENT_SECRET", "")).strip(),
+        "account_id": os.getenv("TARGET_ACCOUNT_ID", "").strip(),
+        "scope": st.session_state.get("target_scope", os.getenv("TARGET_SCOPE", DEFAULT_TARGET_SCOPE)).strip() or DEFAULT_TARGET_SCOPE,
+        "account_token": st.session_state.get(
+            "target_destination_account_token",
+            os.getenv("TARGET_ACCOUNT_TOKEN", DEFAULT_DESTINATION_ACCOUNT_TOKEN),
+        ).strip(),
+        "move_path": os.getenv("TARGET_MOVE_ENDPOINT_PATH", DEFAULT_TARGET_MOVE_PATH).strip() or DEFAULT_TARGET_MOVE_PATH,
+    }
+    if any(target_console[field] for field in ("client_id", "account_id", "api_base_url")):
+        consoles.append(target_console)
+
+    target_console_2 = {
+        "key": "target_nebula_2",
+        "label": os.getenv("TARGET_CONSOLE_NAME_2", "TARGET 2"),
+        "kind": "Nebula",
+        "api_base_url": os.getenv("TARGET_API_BASE_URL_2", os.getenv("TARGET_API_BASE_URL", DEFAULT_TARGET_API_BASE_URL)).strip(),
+        "token_url": os.getenv("TARGET_TOKEN_URL_2", os.getenv("TARGET_TOKEN_URL", DEFAULT_TARGET_TOKEN_URL)).strip(),
+        "client_id": os.getenv("TARGET_CLIENT_ID_2", "").strip(),
+        "client_secret": os.getenv("TARGET_CLIENT_SECRET_2", "").strip(),
+        "account_id": os.getenv("TARGET_ACCOUNT_ID_2", "").strip(),
+        "scope": os.getenv("TARGET_SCOPE_2", os.getenv("TARGET_SCOPE", DEFAULT_TARGET_SCOPE)).strip() or DEFAULT_TARGET_SCOPE,
+        "account_token": os.getenv("TARGET_ACCOUNT_TOKEN_2", "").strip(),
+        "move_path": os.getenv("TARGET_MOVE_ENDPOINT_PATH_2", os.getenv("TARGET_MOVE_ENDPOINT_PATH", DEFAULT_TARGET_MOVE_PATH)).strip() or DEFAULT_TARGET_MOVE_PATH,
+    }
+    if any(target_console_2[field] for field in ("client_id", "account_id", "api_base_url")):
+        consoles.append(target_console_2)
+
+    edron_oneview_console = {
+        "key": "edron_oneview",
+        "label": os.getenv("EDRON_ONEVIEW_CONSOLE_NAME", "EDRON OneView"),
+        "kind": "OneView",
+        "api_base_url": st.session_state.get("edron_api_base_url", os.getenv("ONEVIEW_API_BASE_URL", DEFAULT_ONEVIEW_API_BASE_URL)).strip(),
+        "token_url": os.getenv("ONEVIEW_TOKEN_URL", DEFAULT_ONEVIEW_TOKEN_URL).strip(),
+        "client_id": os.getenv("TD_CLIENT_ID_2", os.getenv("TD_CLIENT_ID", "")).strip(),
+        "client_secret": os.getenv("TD_CLIENT_SECRET_2", os.getenv("TD_CLIENT_SECRET", "")).strip(),
+        "account_id": "",
+        "scope": os.getenv("ONEVIEW_SCOPE", DEFAULT_ONEVIEW_SCOPE).strip() or DEFAULT_ONEVIEW_SCOPE,
+        "account_token": "",
+    }
+    if any(edron_oneview_console[field] for field in ("client_id", "api_base_url")):
+        consoles.append(edron_oneview_console)
+
+    return consoles
+
+
+def build_console_catalog_df(consoles: list) -> pd.DataFrame:
+    rows = []
+    for console in consoles:
+        rows.append(
+            {
+                "Consola": console.get("label", ""),
+                "Tipo": console.get("kind", ""),
+                "API Base URL": console.get("api_base_url", ""),
+                "Token URL": console.get("token_url", ""),
+                "Account ID": console.get("account_id", ""),
+                "Client ID": "Sí" if console.get("client_id") else "No",
+                "Client Secret": "Sí" if console.get("client_secret") else "No",
+                "Account Token": "Sí" if console.get("account_token") else "No",
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def format_console_option(console: dict) -> str:
+    label = console.get("label", "Consola")
+    kind = console.get("kind", "")
+    account_id = console.get("account_id", "")
+    suffix = f" - {account_id}" if account_id else ""
+    return f"{label} ({kind}){suffix}"
 
 
 def extract_items(payload: object) -> list:
@@ -765,6 +991,31 @@ def extract_job_ids_from_batch_results(batch_results: list) -> list:
     return job_ids
 
 
+def extract_job_records_from_batch_results(batch_results: list) -> list:
+    job_records = []
+    seen_pairs = set()
+    for batch in batch_results:
+        if not isinstance(batch, dict):
+            continue
+        account_id = str(batch.get("account_id", "")).strip()
+        result = batch.get("result", {}) if isinstance(batch.get("result"), dict) else {}
+        attempts = result.get("attempts", []) if isinstance(result, dict) else []
+        for attempt in attempts:
+            response_body = attempt.get("response") if isinstance(attempt, dict) else None
+            if isinstance(response_body, dict):
+                jobs = response_body.get("jobs")
+                if isinstance(jobs, list):
+                    for job in jobs:
+                        if not isinstance(job, dict):
+                            continue
+                        job_id = str(job.get("job_id", "")).strip()
+                        pair = (job_id, account_id)
+                        if job_id and pair not in seen_pairs:
+                            seen_pairs.add(pair)
+                            job_records.append({"job_id": job_id, "account_id": account_id})
+    return job_records
+
+
 def get_jobs_status_report(
     access_token: str,
     api_base_url: str,
@@ -825,6 +1076,99 @@ def get_jobs_status_report(
         rows.append(
             {
                 "job_id": jid,
+                "status": status,
+                "machine_id": machine_id,
+                "machine_name": machine_name,
+                "issued_at": issued_at,
+                "expires_at": expires_at,
+                "http_status": status_code,
+                "detail": detail,
+            }
+        )
+
+    total = len(rows)
+    completed = sum(1 for r in rows if r.get("status") == "COMPLETED")
+    pending = sum(1 for r in rows if r.get("status") == "PENDING")
+    failed = sum(1 for r in rows if r.get("status") in {"FAILED", "ERROR", "CANCELLED"})
+    other = max(total - completed - pending - failed, 0)
+    completion_pct = round((completed / total) * 100, 2) if total else 0.0
+
+    summary = {
+        "total_jobs": total,
+        "completed": completed,
+        "pending": pending,
+        "failed": failed,
+        "other": other,
+        "completion_pct": completion_pct,
+    }
+    return rows, summary
+
+
+def get_jobs_status_report_by_records(
+    access_token: str,
+    api_base_url: str,
+    job_records: list,
+) -> Tuple[list, dict]:
+    base_url = api_base_url.strip() or API_BASE_URL
+
+    rows = []
+    for record in job_records:
+        if not isinstance(record, dict):
+            continue
+
+        jid = str(record.get("job_id", "")).strip()
+        account_id = str(record.get("account_id", "")).strip()
+        if not jid:
+            continue
+
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Accept": "application/json",
+        }
+        if account_id:
+            headers["accountid"] = account_id
+
+        url = f"{base_url}/nebula/v1/jobs/{jid}"
+        status = "UNKNOWN"
+        machine_id = ""
+        machine_name = ""
+        issued_at = ""
+        expires_at = ""
+        detail = ""
+        status_code = None
+
+        try:
+            response = requests.get(url, headers=headers, timeout=30)
+            status_code = response.status_code
+            content_type = response.headers.get("Content-Type", "")
+            if "application/json" in content_type.lower():
+                payload = response.json()
+            else:
+                payload = {"raw_response": response.text}
+
+            if 200 <= response.status_code < 300 and isinstance(payload, dict):
+                status = str(
+                    payload.get("status")
+                    or payload.get("state")
+                    or payload.get("job_status")
+                    or payload.get("result")
+                    or "UNKNOWN"
+                ).upper()
+                machine_id = str(payload.get("machine_id", ""))
+                machine_name = str(payload.get("machine_name", ""))
+                issued_at = str(payload.get("issued_at", ""))
+                expires_at = str(payload.get("expires_at", ""))
+            else:
+                status = f"HTTP_{response.status_code}"
+                detail = str(payload)[:300]
+        except requests.RequestException as exc:
+            status = "REQUEST_ERROR"
+            detail = str(exc)
+
+        rows.append(
+            {
+                "job_id": jid,
+                "account_id": account_id,
                 "status": status,
                 "machine_id": machine_id,
                 "machine_name": machine_name,
@@ -973,6 +1317,87 @@ def probe_paths(access_token: str, candidate_paths_text: str, api_base_url: str 
 st.title("Nebula Migration Assistant")
 st.caption("Pestana unica para seleccionar endpoints y preparar lote de migracion.")
 
+# =============================================================================
+# MULTI-MIGRATION SELECTOR
+# =============================================================================
+if len(_available_migrations) > 1:
+    st.divider()
+    col1, col2 = st.columns([3, 1])
+    
+    with col1:
+        migration_options = {
+            mid: f"{cfg['name']} (ID: {mid})" 
+            for mid, cfg in _available_migrations.items()
+        }
+        selected_migration = st.selectbox(
+            "🔄 Selecciona la migración:",
+            options=sorted(migration_options.keys()),
+            format_func=lambda x: migration_options[x],
+            key="sidebar_migration_selector",
+        )
+        if selected_migration != st.session_state.selected_migration:
+            st.session_state.selected_migration = selected_migration
+            st.rerun()
+    
+    with col2:
+        st.metric(
+            "Total",
+            f"{len(_available_migrations)} migraciones"
+        )
+    
+    st.divider()
+    
+    # Usar configuración de la migración seleccionada
+    current_migration = _available_migrations[st.session_state.selected_migration]
+    st.info(f"**Activa:** {current_migration['name']}")
+else:
+    current_migration = _active_migration if _active_migration else {}
+    if current_migration:
+        st.info(f"**Migración:** {current_migration['name']}")
+
+console_catalog = build_console_catalog()
+console_lookup = {console["key"]: console for console in console_catalog}
+all_console_keys = [console["key"] for console in console_catalog]
+nebula_console_keys = [console["key"] for console in console_catalog if console.get("kind") == "Nebula"]
+oneview_console_keys = [console["key"] for console in console_catalog if console.get("kind") == "OneView"]
+
+with st.expander("Tabla de consolas configuradas", expanded=True):
+    if console_catalog:
+        st.dataframe(build_console_catalog_df(console_catalog), hide_index=True, use_container_width=True)
+    else:
+        st.warning("No se detectaron consolas configuradas en el entorno actual.")
+
+    if len(nebula_console_keys) < 2:
+        st.warning("Se necesitan al menos dos consolas Nebula configuradas para elegir origen y destino sin repetir.")
+
+migration_origin_default = st.session_state.get("migration_origin_console_key", all_console_keys[0] if all_console_keys else "")
+if migration_origin_default not in all_console_keys and all_console_keys:
+    migration_origin_default = all_console_keys[0]
+
+migration_destination_candidates = [key for key in nebula_console_keys if key != migration_origin_default]
+migration_destination_default = st.session_state.get(
+    "migration_destination_console_key",
+    migration_destination_candidates[0] if migration_destination_candidates else "",
+)
+if migration_destination_default not in migration_destination_candidates and migration_destination_candidates:
+    migration_destination_default = migration_destination_candidates[0]
+
+edron_source_default = st.session_state.get("edron_origin_console_key", oneview_console_keys[0] if oneview_console_keys else "")
+if edron_source_default not in oneview_console_keys and oneview_console_keys:
+    edron_source_default = oneview_console_keys[0]
+
+edron_destination_default = st.session_state.get(
+    "edron_destination_console_key",
+    nebula_console_keys[0] if nebula_console_keys else "",
+)
+if edron_destination_default not in nebula_console_keys and nebula_console_keys:
+    edron_destination_default = nebula_console_keys[0]
+
+selected_migration_source_console = console_lookup.get(migration_origin_default, {})
+selected_migration_destination_console = console_lookup.get(migration_destination_default, {})
+selected_edron_source_console = console_lookup.get(edron_source_default, {})
+selected_edron_destination_console = console_lookup.get(edron_destination_default, {})
+
 tab_migration, tab_edron = st.tabs(["Migracion", "Edron OneView"])
 
 with tab_migration:
@@ -983,10 +1408,75 @@ with tab_migration:
             "Si ya expusiste un secret, rótalo antes de usar esta app."
         )
 
-    prefill_client_id = os.getenv("THREATDOWN_CLIENT_ID", os.getenv("SOURCE_CLIENT_ID", ""))
-    prefill_client_secret = os.getenv("THREATDOWN_CLIENT_SECRET", os.getenv("SOURCE_CLIENT_SECRET", ""))
-    prefill_api_base_url = os.getenv("SOURCE_API_BASE_URL", API_BASE_URL)
-    prefill_token_url = os.getenv("SOURCE_TOKEN_URL", TOKEN_URL)
+    st.subheader("Consolas de la migración")
+    if all_console_keys:
+        col_console_1, col_console_2 = st.columns(2)
+        migration_origin_key = col_console_1.selectbox(
+            "Consola de origen",
+            options=all_console_keys,
+            index=all_console_keys.index(migration_origin_default),
+            format_func=lambda key: format_console_option(console_lookup[key]),
+            key="migration_origin_console_key",
+        )
+        migration_destination_options = [key for key in nebula_console_keys if key != migration_origin_key]
+        migration_destination_key = col_console_2.selectbox(
+            "Consola de destino",
+            options=migration_destination_options,
+            index=migration_destination_options.index(migration_destination_default)
+            if migration_destination_default in migration_destination_options else 0,
+            format_func=lambda key: format_console_option(console_lookup[key]),
+            key="migration_destination_console_key",
+        )
+        selected_migration_destination_console = console_lookup[migration_destination_key]
+        selected_migration_source_console = console_lookup[migration_origin_key]
+        st.caption(
+            "Origen activo: "
+            f"{format_console_option(selected_migration_source_console)} | "
+            f"Destino activo: {format_console_option(selected_migration_destination_console) if selected_migration_destination_console else 'Sin destino'}"
+        )
+    else:
+        migration_origin_key = ""
+        migration_destination_key = ""
+        st.warning("No hay consolas disponibles para esta migración.")
+
+    prefill_client_id = selected_migration_source_console.get("client_id", "")
+    prefill_client_secret = selected_migration_source_console.get("client_secret", "")
+    prefill_api_base_url = selected_migration_source_console.get("api_base_url", API_BASE_URL)
+    prefill_token_url = selected_migration_source_console.get("token_url", TOKEN_URL)
+    prefill_scope = selected_migration_source_console.get("scope", DEFAULT_SCOPE)
+    prefill_source_account_id = selected_migration_source_console.get("account_id", DEFAULT_SOURCE_ACCOUNT_ID)
+    prefill_destination_account_token = selected_migration_destination_console.get("account_token", DEFAULT_DESTINATION_ACCOUNT_TOKEN)
+    prefill_move_path = selected_migration_destination_console.get("move_path", DEFAULT_TARGET_MOVE_PATH)
+
+    previous_source_console_key = st.session_state.get("_active_source_console_key")
+    if migration_origin_key and migration_origin_key != previous_source_console_key:
+        st.session_state["_active_source_console_key"] = migration_origin_key
+        st.session_state["source_api_base_url"] = prefill_api_base_url
+        st.session_state["source_token_url"] = prefill_token_url
+        st.session_state["last_access_token"] = ""
+        st.session_state.pop("listed_endpoints", None)
+        st.session_state.pop("live_jobs_report_rows", None)
+        st.session_state.pop("live_jobs_report_summary", None)
+
+    if migration_destination_key and not prefill_destination_account_token:
+        destination_account_ctx, destination_account_ctx_detail = get_nebula_account_context(
+            selected_migration_destination_console.get("client_id", ""),
+            selected_migration_destination_console.get("client_secret", ""),
+            selected_migration_destination_console.get("scope", DEFAULT_TARGET_SCOPE),
+            selected_migration_destination_console.get("token_url", DEFAULT_TARGET_TOKEN_URL),
+            selected_migration_destination_console.get("api_base_url", DEFAULT_TARGET_API_BASE_URL),
+            selected_migration_destination_console.get("account_id", ""),
+        )
+        if destination_account_ctx:
+            prefill_destination_account_token = str(destination_account_ctx.get("account_token", "")).strip()
+        elif selected_migration_destination_console.get("kind") == "Nebula":
+            st.warning(
+                "No se pudo resolver automáticamente el Account Token del destino seleccionado. "
+                "Captúralo manualmente o revisa las credenciales de esa consola."
+            )
+
+    if migration_destination_key and not prefill_destination_account_token:
+        st.warning("La consola de destino seleccionada no tiene Account Token configurado; debes capturarlo manualmente antes de migrar.")
 
     st.subheader("1) Obtener token del origen")
     with st.form("token_form"):
@@ -999,7 +1489,7 @@ with tab_migration:
         )
         api_base_url = st.text_input("API Base URL", value=prefill_api_base_url)
         token_url = st.text_input("Token URL", value=prefill_token_url)
-        scope = st.text_input("Scope", value=DEFAULT_SCOPE)
+        scope = st.text_input("Scope", value=prefill_scope)
         submitted = st.form_submit_button("Obtener token", use_container_width=True)
 
     if submitted:
@@ -1089,7 +1579,7 @@ with tab_migration:
         request_method = st.selectbox("Método", options=["POST", "GET"], index=0)
         account_id = st.text_input(
             "Account ID (para POST)",
-            value=DEFAULT_SOURCE_ACCOUNT_ID,
+            value=prefill_source_account_id,
             help="Algunos tenants requieren header accountid para listar endpoints.",
         )
         page_size = st.number_input("Page size", min_value=1, max_value=500, value=200, step=1)
@@ -1099,6 +1589,16 @@ with tab_migration:
     if list_submitted:
         if not list_access_token.strip():
             st.error("Falta el Access Token para listar endpoints.")
+        elif selected_migration_source_console.get("kind") == "OneView":
+            st.error(
+                "La consola de origen seleccionada es OneView. "
+                "Para OneView usa la pestaña 'Edron OneView'; este paso lista endpoints Nebula y requiere accountid."
+            )
+        elif request_method == "POST" and not account_id.strip():
+            st.error(
+                "Falta el Account ID para listar endpoints Nebula por POST. "
+                "Selecciona una consola Nebula con accountid o captura el valor manualmente."
+            )
         else:
             with st.spinner("Consultando todos los endpoints..."):
                 endpoints, list_detail = get_all_endpoints(
@@ -1410,7 +1910,7 @@ with tab_migration:
             )
             probe_move_accountid = st.text_input(
                 "Header accountid para diagnóstico",
-                value=DEFAULT_SOURCE_ACCOUNT_ID,
+                value=prefill_source_account_id,
                 key="probe_move_accountid",
             )
             move_candidate_paths = st.text_area(
@@ -1452,14 +1952,14 @@ with tab_migration:
             )
             source_account_id_for_move = st.text_input(
                 "Source Account ID (header accountid)",
-                value=DEFAULT_SOURCE_ACCOUNT_ID,
+                value=prefill_source_account_id,
             )
             destination_account_token = st.text_input(
                 "Destination Account Token",
-                value=st.session_state.get("target_destination_account_token", DEFAULT_DESTINATION_ACCOUNT_TOKEN),
+                value=prefill_destination_account_token,
                 type="password",
             )
-            move_path = st.text_input("Jobs Path", value=DEFAULT_TARGET_MOVE_PATH)
+            move_path = st.text_input("Jobs Path", value=prefill_move_path)
             migration_command = st.text_input("Command", value=DEFAULT_MIGRATION_COMMAND)
             batch_size = st.selectbox("Tamano de batch", options=[1, 5, 10], index=1)
             dry_run = st.checkbox("Dry run (solo simular y mostrar payload)", value=True)
@@ -1472,9 +1972,27 @@ with tab_migration:
                 st.error("Falta Access Token de origen para ejecutar el job de migración.")
             elif not source_account_id_for_move.strip():
                 st.error("Falta Source Account ID para el header accountid.")
-            elif not destination_account_token.strip():
-                st.error("Falta Destination Account Token.")
             else:
+                effective_destination_account_token = destination_account_token.strip()
+                if not effective_destination_account_token:
+                    destination_account_ctx, destination_account_ctx_detail = get_nebula_account_context(
+                        selected_migration_destination_console.get("client_id", ""),
+                        selected_migration_destination_console.get("client_secret", ""),
+                        selected_migration_destination_console.get("scope", DEFAULT_TARGET_SCOPE),
+                        selected_migration_destination_console.get("token_url", DEFAULT_TARGET_TOKEN_URL),
+                        selected_migration_destination_console.get("api_base_url", DEFAULT_TARGET_API_BASE_URL),
+                        selected_migration_destination_console.get("account_id", ""),
+                    )
+                    if destination_account_ctx:
+                        effective_destination_account_token = str(
+                            destination_account_ctx.get("account_token", "")
+                        ).strip()
+
+                if not effective_destination_account_token:
+                    st.error("Falta Destination Account Token y no se pudo resolver automáticamente desde la consola destino.")
+                    st.json(destination_account_ctx_detail if 'destination_account_ctx_detail' in locals() else {})
+                    st.stop()
+
                 selected_batches = chunk_rows(selected_rows, int(batch_size))
 
                 effective_move_path = move_path.strip() or DEFAULT_TARGET_MOVE_PATH
@@ -1490,7 +2008,7 @@ with tab_migration:
                 for batch_index, batch_rows in enumerate(selected_batches, start=1):
                     payload_variants = build_migration_payload_variants(
                         batch_rows,
-                        destination_account_token=destination_account_token.strip(),
+                        destination_account_token=effective_destination_account_token,
                         command_name=migration_command.strip() or DEFAULT_MIGRATION_COMMAND,
                     )
                     for variant in payload_variants:
@@ -1515,7 +2033,7 @@ with tab_migration:
                     for batch_index, batch_rows in enumerate(selected_batches, start=1):
                         payload_variants = build_migration_payload_variants(
                             batch_rows,
-                            destination_account_token=destination_account_token.strip(),
+                            destination_account_token=effective_destination_account_token,
                             command_name=migration_command.strip() or DEFAULT_MIGRATION_COMMAND,
                         )
 
@@ -1651,33 +2169,62 @@ with tab_edron:
     st.subheader("Inventario OneView de Edron")
     st.caption("Lista completa de equipos de Edron, seleccionable y exportable en CSV/XLSX.")
 
+    st.subheader("Consolas de la migración Edron")
+    if oneview_console_keys:
+        col_edron_1, col_edron_2 = st.columns(2)
+        edron_origin_key = col_edron_1.selectbox(
+            "Consola de origen",
+            options=oneview_console_keys,
+            index=oneview_console_keys.index(edron_source_default),
+            format_func=lambda key: format_console_option(console_lookup[key]),
+            key="edron_origin_console_key",
+        )
+        edron_destination_key = col_edron_2.selectbox(
+            "Consola de destino",
+            options=nebula_console_keys,
+            index=nebula_console_keys.index(edron_destination_default) if edron_destination_default in nebula_console_keys else 0,
+            format_func=lambda key: format_console_option(console_lookup[key]),
+            key="edron_destination_console_key",
+        )
+        selected_edron_source_console = console_lookup[edron_origin_key]
+        selected_edron_destination_console = console_lookup[edron_destination_key]
+        st.caption(
+            "Origen activo: "
+            f"{format_console_option(selected_edron_source_console)} | "
+            f"Destino activo: {format_console_option(selected_edron_destination_console)}"
+        )
+    else:
+        edron_origin_key = ""
+        edron_destination_key = ""
+        st.warning("No hay consola OneView configurada para esta migración.")
+
     with st.expander("Destino Nebula (no registrado)", expanded=False):
         st.caption("Configura aquí la consola destino sin usar .env. Se guarda en esta sesión.")
         with st.form("edron_target_console_form"):
             target_client_id_ad_hoc = st.text_input(
                 "Target Client ID",
-                value=st.session_state.get("target_client_id", DEFAULT_TARGET_CLIENT_ID),
+                value=selected_edron_destination_console.get("client_id", st.session_state.get("target_client_id", DEFAULT_TARGET_CLIENT_ID)),
             )
             target_client_secret_ad_hoc = st.text_input(
                 "Target Client Secret",
-                value=st.session_state.get("target_client_secret", DEFAULT_TARGET_CLIENT_SECRET),
+                value=selected_edron_destination_console.get("client_secret", st.session_state.get("target_client_secret", DEFAULT_TARGET_CLIENT_SECRET)),
                 type="password",
             )
             target_token_url_ad_hoc = st.text_input(
                 "Target Token URL",
-                value=st.session_state.get("target_token_url", DEFAULT_TARGET_TOKEN_URL),
+                value=selected_edron_destination_console.get("token_url", st.session_state.get("target_token_url", DEFAULT_TARGET_TOKEN_URL)),
             )
             target_scope_ad_hoc = st.text_input(
                 "Target Scope",
-                value=st.session_state.get("target_scope", DEFAULT_TARGET_SCOPE),
+                value=selected_edron_destination_console.get("scope", st.session_state.get("target_scope", DEFAULT_TARGET_SCOPE)),
             )
             target_api_base_ad_hoc = st.text_input(
                 "Target API Base URL",
-                value=st.session_state.get("target_api_base_url", DEFAULT_TARGET_API_BASE_URL),
+                value=selected_edron_destination_console.get("api_base_url", st.session_state.get("target_api_base_url", DEFAULT_TARGET_API_BASE_URL)),
             )
             destination_account_token_ad_hoc = st.text_input(
                 "Destination Account Token",
-                value=st.session_state.get("target_destination_account_token", DEFAULT_DESTINATION_ACCOUNT_TOKEN),
+                value=selected_edron_destination_console.get("account_token", st.session_state.get("target_destination_account_token", DEFAULT_DESTINATION_ACCOUNT_TOKEN)),
                 type="password",
                 help="Token de cuenta destino usado por command.engine.changeaccounttoken.",
             )
@@ -1718,26 +2265,26 @@ with tab_edron:
     with st.form("edron_oneview_form"):
         edron_client_id = st.text_input(
             "Client ID",
-            value=DEFAULT_EDRON_CLIENT_ID,
+            value=selected_edron_source_console.get("client_id", DEFAULT_EDRON_CLIENT_ID),
             placeholder="TD_CLIENT_ID_2",
         )
         edron_client_secret = st.text_input(
             "Client Secret",
-            value=DEFAULT_EDRON_CLIENT_SECRET,
+            value=selected_edron_source_console.get("client_secret", DEFAULT_EDRON_CLIENT_SECRET),
             placeholder="TD_CLIENT_SECRET_2",
             type="password",
         )
         edron_api_base = st.text_input(
             "OneView API Base URL",
-            value=DEFAULT_ONEVIEW_API_BASE_URL,
+            value=selected_edron_source_console.get("api_base_url", DEFAULT_ONEVIEW_API_BASE_URL),
             help="Ejemplo: https://api.malwarebytes.com",
         )
         edron_token_url = st.text_input(
             "OneView Token URL",
-            value=DEFAULT_ONEVIEW_TOKEN_URL,
+            value=selected_edron_source_console.get("token_url", DEFAULT_ONEVIEW_TOKEN_URL),
             help="Ejemplo: https://api.malwarebytes.com/oneview/oauth2/token",
         )
-        edron_scope = st.text_input("Scope", value=DEFAULT_ONEVIEW_SCOPE)
+        edron_scope = st.text_input("Scope", value=selected_edron_source_console.get("scope", DEFAULT_ONEVIEW_SCOPE))
         edron_page_size = st.number_input("Page size", min_value=1, max_value=500, value=200, step=1)
         edron_max_pages = st.number_input("Max pages (0 = sin límite)", min_value=0, max_value=1000, value=0, step=1)
         only_edron = st.checkbox("Filtrar solo sites con 'Edron' en company_name", value=True)
@@ -1808,6 +2355,8 @@ with tab_edron:
                             st.session_state["edron_sites"] = filtered_sites
                             st.session_state["edron_oneview_endpoints"] = endpoints
                             st.session_state["edron_account_ids"] = account_ids
+                            st.session_state["edron_access_token"] = token
+                            st.session_state["edron_api_base_url"] = edron_api_base.strip() or DEFAULT_ONEVIEW_API_BASE_URL
                             st.success(f"Equipos cargados: {len(endpoints)}")
                             st.json({
                                 "sites_total": len(site_rows),
@@ -1889,6 +2438,264 @@ with tab_edron:
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             use_container_width=True,
         )
+
+        st.divider()
+        st.subheader("Migracion / premigracion desde Edron")
+        st.caption("Simula o ejecuta command.engine.changeaccounttoken para los equipos seleccionados.")
+
+        edron_selected_rows = st.session_state.get("edron_selected_rows", [])
+        with st.form("execute_edron_migration_form"):
+            edron_origin_access_token = st.text_input(
+                "Access Token de origen (OneView)",
+                value=st.session_state.get("edron_access_token", ""),
+                type="password",
+            )
+            edron_origin_api_base_url = st.text_input(
+                "API Base URL de origen",
+                value=st.session_state.get("edron_api_base_url", DEFAULT_ONEVIEW_API_BASE_URL),
+                help="Se usa para enviar el job al tenant origen de Edron.",
+            )
+            edron_destination_account_token = st.text_input(
+                "Destination Account Token",
+                value=selected_edron_destination_console.get(
+                    "account_token",
+                    st.session_state.get("target_destination_account_token", DEFAULT_DESTINATION_ACCOUNT_TOKEN),
+                ),
+                type="password",
+            )
+            edron_move_path = st.text_input(
+                "Jobs Path",
+                value=selected_edron_destination_console.get("move_path", DEFAULT_TARGET_MOVE_PATH),
+            )
+            edron_migration_command = st.text_input("Command", value=DEFAULT_MIGRATION_COMMAND)
+            edron_batch_size = st.selectbox("Tamano de batch", options=[1, 5, 10], index=1)
+            edron_dry_run = st.checkbox("Dry run (solo simular y mostrar payload)", value=True)
+            execute_edron_migration = st.form_submit_button("Ejecutar migracion Edron", use_container_width=True)
+
+        if execute_edron_migration:
+            if not edron_selected_rows:
+                st.error("No hay equipos seleccionados en Edron. Marca al menos uno antes de migrar.")
+            elif not edron_origin_access_token.strip():
+                st.error("Falta Access Token de origen (OneView).")
+            else:
+                effective_edron_destination_account_token = edron_destination_account_token.strip()
+                if not effective_edron_destination_account_token:
+                    edron_destination_ctx, edron_destination_ctx_detail = get_nebula_account_context(
+                        selected_edron_destination_console.get("client_id", ""),
+                        selected_edron_destination_console.get("client_secret", ""),
+                        selected_edron_destination_console.get("scope", DEFAULT_TARGET_SCOPE),
+                        selected_edron_destination_console.get("token_url", DEFAULT_TARGET_TOKEN_URL),
+                        selected_edron_destination_console.get("api_base_url", DEFAULT_TARGET_API_BASE_URL),
+                        selected_edron_destination_console.get("account_id", ""),
+                    )
+                    if edron_destination_ctx:
+                        effective_edron_destination_account_token = str(
+                            edron_destination_ctx.get("account_token", "")
+                        ).strip()
+
+                if not effective_edron_destination_account_token:
+                    st.error("Falta Destination Account Token y no se pudo resolver automáticamente desde la consola destino.")
+                    st.json(edron_destination_ctx_detail if 'edron_destination_ctx_detail' in locals() else {})
+                    st.stop()
+
+                grouped_rows = {}
+                for row in edron_selected_rows:
+                    account_id = str(row.get("account_id", "")).strip()
+                    grouped_rows.setdefault(account_id, []).append(row)
+
+                effective_move_path = edron_move_path.strip() or DEFAULT_TARGET_MOVE_PATH
+                if effective_move_path.rstrip("/") in {"/nebula/v1/endpoints/move", "/v1/endpoints/move"}:
+                    st.warning(
+                        "La ruta de move antigua fue ajustada automaticamente a /nebula/v1/jobs "
+                        "para command.engine.changeaccounttoken."
+                    )
+                    effective_move_path = "/nebula/v1/jobs"
+
+                edron_batches = []
+                for account_id, account_rows in grouped_rows.items():
+                    for batch_index, batch_rows in enumerate(chunk_rows(account_rows, int(edron_batch_size)), start=1):
+                        edron_batches.append(
+                            {
+                                "account_id": account_id,
+                                "batch_index": batch_index,
+                                "rows": batch_rows,
+                            }
+                        )
+
+                dry_run_payloads = []
+                for batch in edron_batches:
+                    payload_variants = build_migration_payload_variants(
+                        batch["rows"],
+                        destination_account_token=effective_edron_destination_account_token,
+                        command_name=edron_migration_command.strip() or DEFAULT_MIGRATION_COMMAND,
+                    )
+                    for variant in payload_variants:
+                        dry_run_payloads.append(
+                            {
+                                "account_id": batch["account_id"],
+                                "batch": batch["batch_index"],
+                                "batch_size": len(batch["rows"]),
+                                "payload": variant,
+                            }
+                        )
+
+                st.write("Payload(s) preparado(s) por batch y account_id:")
+                st.json(dry_run_payloads)
+
+                if edron_dry_run:
+                    st.success("Dry run completado. No se enviaron cambios al destino.")
+                else:
+                    batch_results = []
+                    total_ok = 0
+                    total_fail = 0
+
+                    for batch in edron_batches:
+                        payload_variants = build_migration_payload_variants(
+                            batch["rows"],
+                            destination_account_token=effective_edron_destination_account_token,
+                            command_name=edron_migration_command.strip() or DEFAULT_MIGRATION_COMMAND,
+                        )
+
+                        with st.spinner(
+                            f"Ejecutando account_id {batch['account_id'] or '(sin account_id)'} "
+                            f"batch {batch['batch_index']} ({len(batch['rows'])} endpoint(s))..."
+                        ):
+                            ok, migration_result = run_migration_request(
+                                access_token=edron_origin_access_token.strip(),
+                                api_base_url=edron_origin_api_base_url.strip() or DEFAULT_ONEVIEW_API_BASE_URL,
+                                jobs_path=effective_move_path,
+                                origin_account_id=batch["account_id"],
+                                payload_variants=payload_variants,
+                            )
+
+                        batch_results.append(
+                            {
+                                "account_id": batch["account_id"],
+                                "batch": batch["batch_index"],
+                                "batch_size": len(batch["rows"]),
+                                "machine_ids": [r.get("machine_id", "") for r in batch["rows"] if r.get("machine_id")],
+                                "ok": ok,
+                                "result": migration_result,
+                            }
+                        )
+                        if ok:
+                            total_ok += 1
+                        else:
+                            total_fail += 1
+
+                    if total_fail == 0:
+                        st.success(
+                            f"Migracion Edron enviada por batches. Exitosos: {total_ok}/{len(edron_batches)}"
+                        )
+                    else:
+                        st.error(
+                            f"Migracion Edron con errores por batch. Exitosos: {total_ok}, Fallidos: {total_fail}"
+                        )
+
+                    st.json(
+                        {
+                            "total_selected": len(edron_selected_rows),
+                            "total_batches": len(edron_batches),
+                            "batch_size": int(edron_batch_size),
+                            "ok_batches": total_ok,
+                            "failed_batches": total_fail,
+                            "batches": batch_results,
+                        }
+                    )
+
+                    st.session_state["edron_last_batch_results"] = batch_results
+                    st.session_state["edron_last_migration_context"] = {
+                        "access_token": edron_origin_access_token.strip(),
+                        "api_base_url": edron_origin_api_base_url.strip() or DEFAULT_ONEVIEW_API_BASE_URL,
+                    }
+                    st.session_state["edron_last_job_records"] = extract_job_records_from_batch_results(batch_results)
+
+        st.divider()
+        st.subheader("Reporte vivo de migracion Edron")
+        st.caption("Consulta el estado real de los jobs de Edron y revisa si siguen en pending.")
+
+        edron_live_ctx = st.session_state.get("edron_last_migration_context", {})
+        default_edron_live_token = edron_live_ctx.get("access_token", st.session_state.get("edron_access_token", ""))
+        default_edron_live_api_base = edron_live_ctx.get(
+            "api_base_url",
+            st.session_state.get("edron_api_base_url", DEFAULT_ONEVIEW_API_BASE_URL),
+        )
+        default_edron_job_records = st.session_state.get("edron_last_job_records", [])
+        default_edron_job_lines = [
+            record["job_id"] + (f"|{record['account_id']}" if record.get("account_id") else "")
+            for record in default_edron_job_records
+            if isinstance(record, dict) and record.get("job_id")
+        ]
+
+        edron_live_access_token = st.text_input(
+            "Access Token para reporte Edron",
+            value=default_edron_live_token,
+            type="password",
+            key="edron_live_report_access_token",
+        )
+        edron_live_api_base_url = st.text_input(
+            "API Base URL para reporte Edron",
+            value=default_edron_live_api_base,
+            key="edron_live_report_api_base",
+        )
+        edron_live_job_ids_text = st.text_area(
+            "Job IDs Edron (uno por linea, opcionalmente job_id|account_id)",
+            value="\n".join(default_edron_job_lines),
+            height=180,
+            key="edron_live_report_job_ids",
+        )
+
+        refresh_edron_jobs = st.button(
+            "Refresh estado de jobs Edron",
+            use_container_width=True,
+            type="primary",
+            key="refresh_edron_jobs",
+        )
+
+        if refresh_edron_jobs:
+            job_records = []
+            for line in edron_live_job_ids_text.splitlines():
+                raw = line.strip()
+                if not raw:
+                    continue
+                if "|" in raw:
+                    job_id, account_id = raw.split("|", 1)
+                else:
+                    job_id, account_id = raw, ""
+                record = {"job_id": job_id.strip(), "account_id": account_id.strip()}
+                if record["job_id"] and record not in job_records:
+                    job_records.append(record)
+
+            if not edron_live_access_token.strip():
+                st.error("Falta Access Token para consultar estado de jobs de Edron.")
+            elif not job_records:
+                st.error("Faltan Job IDs para consultar el reporte de Edron.")
+            else:
+                with st.spinner("Consultando estado de jobs de Edron..."):
+                    report_rows, report_summary = get_jobs_status_report_by_records(
+                        access_token=edron_live_access_token.strip(),
+                        api_base_url=edron_live_api_base_url.strip() or DEFAULT_ONEVIEW_API_BASE_URL,
+                        job_records=job_records,
+                    )
+
+                st.session_state["edron_live_jobs_report_rows"] = report_rows
+                st.session_state["edron_live_jobs_report_summary"] = report_summary
+                st.session_state["edron_last_job_records"] = job_records
+
+        if st.session_state.get("edron_live_jobs_report_summary"):
+            summary = st.session_state["edron_live_jobs_report_summary"]
+            col1, col2, col3, col4 = st.columns(4)
+            col1.metric("Total jobs", int(summary.get("total_jobs", 0)))
+            col2.metric("Completed", int(summary.get("completed", 0)))
+            col3.metric("Pending", int(summary.get("pending", 0)))
+            col4.metric("Failed", int(summary.get("failed", 0)))
+
+            completion_pct = float(summary.get("completion_pct", 0.0))
+            st.progress(min(max(completion_pct / 100.0, 0.0), 1.0), text=f"Completado: {completion_pct:.2f}%")
+
+            if st.session_state.get("edron_live_jobs_report_rows"):
+                report_df = pd.DataFrame(st.session_state["edron_live_jobs_report_rows"])
+                st.dataframe(report_df, use_container_width=True)
 
         st.divider()
         st.subheader("Tracking de migración (consecutivos)")
