@@ -684,8 +684,17 @@ def _get_mid_for_log(row: dict, machine_id_field: str) -> str:
 
 
 def endpoint_to_selection_row(ep: dict) -> dict:
-    # Usa los campos reales del endpoint (igual que el CSV), solo antepone 'migrar'
-    return {"migrar": False, **ep}
+    # Estructura específica de MLTi: machine_id y host_name en raíz, os_info anidado
+    os_info = ep.get("os_info", {}) if isinstance(ep.get("os_info"), dict) else {}
+    return {
+        "migrar": False,
+        "machine_id": ep.get("machine_id", ""),
+        "host_name": ep.get("host_name", ""),
+        "os_platform": os_info.get("os_platform", ""),
+        "machine_ip": ep.get("machine_ip", ""),
+        "last_seen": ep.get("at", ""),
+        "account_id": ep.get("account_id", ""),
+    }
 
 
 def build_migration_payload_variants(selected_rows: list, destination_account_token: str, command_name: str, machine_id_field: str = "id") -> list:
@@ -1710,16 +1719,10 @@ with tab_migration:
         st.subheader("4) Ejecutar migración")
         st.caption("Crea un job en el origen para cambiar el account token de los endpoints seleccionados.")
 
-        # Detectar campos disponibles en los endpoints para selector de machine_id
+        # Campo a usar como machine_id — para MLTi es siempre "machine_id" en raíz
         _sample_ep = st.session_state["listed_endpoints"][0] if st.session_state.get("listed_endpoints") else {}
         _ep_fields = [k for k, v in _sample_ep.items() if isinstance(v, str) and v.strip()]
-        _machine_obj = _sample_ep.get("machine", {})
-        if isinstance(_machine_obj, dict):
-            _ep_fields = ["machine.id"] + _ep_fields
-        _default_id_field = next(
-            (f for f in ["machine.id", "id", "machine_id", "agent_id"] if f in _ep_fields),
-            _ep_fields[0] if _ep_fields else "id",
-        )
+        _default_id_field = "machine_id" if "machine_id" in _ep_fields else (_ep_fields[0] if _ep_fields else "machine_id")
 
         with st.expander("Diagnóstico endpoint de move"):
             st.caption("Prueba rutas candidatas de jobs. Si responde distinto de 404, la ruta existe.")
