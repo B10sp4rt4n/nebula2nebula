@@ -665,48 +665,24 @@ def match_excel_rows_to_selection(
     return matched, detail
 
 
-def endpoint_to_selection_row(ep: dict) -> dict:
+def extract_machine_id(ep: dict) -> str:
+    """Extrae machine_id con fallbacks sobre los campos reales del endpoint."""
     machine = ep.get("machine", {}) if isinstance(ep.get("machine"), dict) else {}
-    # machine_id: intenta campo anidado primero, luego campo directo, luego id del endpoint
-    machine_id = (
+    return (
         machine.get("id", "")
         or ep.get("machine_id", "")
         or ep.get("agent_id", "")
+        or ep.get("id", "")
     )
-    name = (
-        ep.get("name")
-        or ep.get("display_name")
-        or ep.get("hostname")
-        or machine.get("name", "")
-        or ""
-    )
-    online = ep.get("online", ep.get("is_online", ""))
-    last_seen = (
-        ep.get("last_seen_at")
-        or ep.get("last_seen")
-        or ep.get("last_active_at")
-        or ep.get("last_active")
-        or ""
-    )
-    os_platform = (
-        ep.get("os_platform")
-        or ep.get("os")
-        or ep.get("operating_system")
-        or ""
-    )
-    return {
-        "migrar": False,
-        "id": ep.get("id", ""),
-        "machine_id": machine_id,
-        "name": name,
-        "online": online,
-        "last_seen_at": last_seen,
-        "os_platform": os_platform,
-    }
+
+
+def endpoint_to_selection_row(ep: dict) -> dict:
+    # Usa los campos reales del endpoint (igual que el CSV), solo antepone 'migrar'
+    return {"migrar": False, **ep}
 
 
 def build_migration_payload_variants(selected_rows: list, destination_account_token: str, command_name: str) -> list:
-    machine_ids = [row.get("machine_id", "") for row in selected_rows if row.get("machine_id")]
+    machine_ids = [mid for row in selected_rows if (mid := extract_machine_id(row))]
 
     variants = [
         {
@@ -1680,6 +1656,8 @@ with tab_migration:
         selection_rows = [endpoint_to_selection_row(ep) for ep in st.session_state["listed_endpoints"]]
 
         selection_df = pd.DataFrame(selection_rows)
+        # Columnas deshabilitadas = todas menos 'migrar'
+        _disabled_cols = [c for c in selection_df.columns if c != "migrar"]
 
         edited_df = st.data_editor(
             selection_df,
@@ -1687,14 +1665,8 @@ with tab_migration:
             use_container_width=True,
             column_config={
                 "migrar": st.column_config.CheckboxColumn("Migrar", help="Selecciona endpoint para migración"),
-                "id": st.column_config.TextColumn("Endpoint ID"),
-                "machine_id": st.column_config.TextColumn("Machine ID"),
-                "name": st.column_config.TextColumn("Nombre"),
-                "online": st.column_config.TextColumn("Online"),
-                "last_seen_at": st.column_config.TextColumn("Last seen"),
-                "os_platform": st.column_config.TextColumn("OS"),
             },
-            disabled=["id", "machine_id", "name", "online", "last_seen_at", "os_platform"],
+            disabled=_disabled_cols,
             key="migration_selector_editor",
         )
 
