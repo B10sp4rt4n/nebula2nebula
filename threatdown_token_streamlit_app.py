@@ -1657,7 +1657,24 @@ with tab_migration:
         list_submitted = st.form_submit_button("Listar endpoints", use_container_width=True)
 
     if list_submitted:
-        if not list_access_token.strip():
+        # Auto-obtener token si no hay uno en sesión
+        _use_token = list_access_token.strip()
+        if not _use_token and selected_migration_source_console.get("client_id"):
+            with st.spinner("Obteniendo token automáticamente..."):
+                _auto_tok, _auto_payload = get_token(
+                    selected_migration_source_console.get("client_id", ""),
+                    selected_migration_source_console.get("client_secret", ""),
+                    selected_migration_source_console.get("scope", DEFAULT_SCOPE),
+                    token_url=selected_migration_source_console.get("token_url", TOKEN_URL),
+                )
+            if _auto_tok:
+                _use_token = _auto_tok
+                st.session_state["last_access_token"] = _auto_tok
+            else:
+                st.error("No se pudo obtener el token automáticamente.")
+                st.json(_auto_payload)
+
+        if not _use_token:
             st.error("Falta el Access Token para listar endpoints.")
         elif selected_migration_source_console.get("kind") == "OneView":
             st.error(
@@ -1672,7 +1689,7 @@ with tab_migration:
         else:
             with st.spinner("Consultando todos los endpoints..."):
                 endpoints, list_detail = get_all_endpoints(
-                    list_access_token.strip(),
+                    _use_token,
                     endpoints_path=endpoints_path.strip() or DEFAULT_ENDPOINTS_PATH,
                     api_base_url=list_api_base_url.strip() or API_BASE_URL,
                     request_method=request_method,
