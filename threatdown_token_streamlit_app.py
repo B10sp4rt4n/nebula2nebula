@@ -536,19 +536,19 @@ def get_all_endpoints(
 
 
 def endpoints_to_csv(endpoints: list) -> str:
+    if not endpoints:
+        return ""
+    # Usar todas las claves presentes en los datos reales
+    all_keys: list = []
+    for ep in endpoints:
+        for k in ep.keys():
+            if k not in all_keys:
+                all_keys.append(k)
     output = StringIO()
-    writer = csv.DictWriter(output, fieldnames=["id", "name", "online", "last_seen_at", "os_platform"])
+    writer = csv.DictWriter(output, fieldnames=all_keys, extrasaction="ignore")
     writer.writeheader()
     for ep in endpoints:
-        writer.writerow(
-            {
-                "id": ep.get("id", ""),
-                "name": ep.get("name", ""),
-                "online": ep.get("online", ""),
-                "last_seen_at": ep.get("last_seen_at", ""),
-                "os_platform": ep.get("os_platform", ""),
-            }
-        )
+        writer.writerow({k: ep.get(k, "") for k in all_keys})
     return output.getvalue()
 
 
@@ -1590,41 +1590,6 @@ with tab_migration:
     _src_method = selected_migration_source_console.get("endpoints_method", "POST").upper()
     _src_path = selected_migration_source_console.get("endpoints_path", DEFAULT_ENDPOINTS_PATH)
     st.caption(f"Método: {_src_method} · Ruta: {_src_path} · paginación automática")
-
-    with st.expander("Diagnóstico de ruta (si recibes 404)"):
-        st.caption("Prueba rutas candidatas para descubrir cuál existe en tu tenant.")
-        probe_token = st.text_input(
-            "Access Token para diagnóstico",
-            value=st.session_state.get("last_access_token", ""),
-            type="password",
-            key="probe_token",
-        )
-        probe_api_base_url = st.text_input(
-            "API Base URL para diagnóstico",
-            value=st.session_state.get("source_api_base_url", prefill_api_base_url),
-            key="probe_api_base_url",
-        )
-        candidate_paths = st.text_area(
-            "Rutas candidatas (una por línea)",
-            value="\n".join(DEFAULT_CANDIDATE_PATHS),
-            height=130,
-        )
-        if st.button("Probar rutas", use_container_width=True):
-            if not probe_token.strip():
-                st.error("Falta el Access Token para diagnóstico.")
-            else:
-                with st.spinner("Probando rutas..."):
-                    probe_result = probe_paths(
-                        probe_token.strip(),
-                        candidate_paths,
-                        api_base_url=probe_api_base_url.strip() or API_BASE_URL,
-                    )
-                st.dataframe(probe_result, use_container_width=True)
-                valid = [r for r in probe_result if r.get("ok")]
-                if valid:
-                    st.success(f"Ruta(s) válidas encontradas: {', '.join([r['path'] for r in valid])}")
-                else:
-                    st.warning("Ninguna ruta candidata devolvió 2xx. Revisa documentación de tu tenant/API.")
 
     # Sección 2: valores fijos desde la consola activa, sin form
     _list_api_base_url = selected_migration_source_console.get("api_base_url", prefill_api_base_url)
