@@ -322,6 +322,51 @@ def build_console_catalog() -> list:
     if any(edron_oneview_console[field] for field in ("client_id", "api_base_url")):
         consoles.append(edron_oneview_console)
 
+    # Agregar consolas de migraciones dinámicas (MIGRATION_N_*)
+    existing_client_ids = {c.get("client_id") for c in consoles}
+    for mid, migration in sorted(_available_migrations.items()):
+        migration_name = migration.get("name", f"Migration {mid}")
+        src = migration.get("source", {})
+        tgt = migration.get("target", {})
+
+        # SOURCE de la migración
+        src_cid = src.get("client_id", "").strip()
+        if src_cid and src_cid not in existing_client_ids:
+            consoles.append({
+                "key": f"migration_{mid}_source",
+                "label": f"{migration_name} – Origen",
+                "kind": "Nebula",
+                "api_base_url": src.get("api_base_url", "https://api.malwarebytes.com"),
+                "token_url": src.get("token_url", "https://api.malwarebytes.com/oauth2/token"),
+                "client_id": src_cid,
+                "client_secret": src.get("client_secret", ""),
+                "account_id": src.get("account_id", ""),
+                "scope": src.get("scope", "read write execute"),
+                "account_token": "",
+                "endpoints_path": src.get("endpoints_path", "/nebula/v1/endpoints"),
+                "endpoints_method": os.getenv(f"MIGRATION_{mid}_SOURCE_ENDPOINTS_METHOD", "GET"),
+                "move_path": "/nebula/v1/jobs",
+            })
+            existing_client_ids.add(src_cid)
+
+        # TARGET de la migración
+        tgt_cid = tgt.get("client_id", "").strip()
+        if tgt_cid and tgt_cid not in existing_client_ids:
+            consoles.append({
+                "key": f"migration_{mid}_target",
+                "label": f"{migration_name} – Destino",
+                "kind": "Nebula",
+                "api_base_url": tgt.get("api_base_url", "https://api.malwarebytes.com"),
+                "token_url": tgt.get("token_url", "https://api.malwarebytes.com/oauth2/token"),
+                "client_id": tgt_cid,
+                "client_secret": tgt.get("client_secret", ""),
+                "account_id": tgt.get("account_id", ""),
+                "scope": tgt.get("scope", "read write execute"),
+                "account_token": os.getenv("DESTINATION_ACCOUNT_TOKEN", ""),
+                "move_path": tgt.get("move_endpoint_path", "/nebula/v1/jobs"),
+            })
+            existing_client_ids.add(tgt_cid)
+
     return consoles
 
 
