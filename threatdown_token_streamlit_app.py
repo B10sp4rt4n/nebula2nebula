@@ -1586,7 +1586,9 @@ with tab_migration:
 
     st.divider()
     st.subheader("2) Listar endpoints")
-    st.caption("GET de coleccion + paginacion automatica")
+    _src_method = selected_migration_source_console.get("endpoints_method", "POST").upper()
+    _src_path = selected_migration_source_console.get("endpoints_path", DEFAULT_ENDPOINTS_PATH)
+    st.caption(f"Método: {_src_method} · Ruta: {_src_path} · paginación automática")
 
     with st.expander("Diagnóstico de ruta (si recibes 404)"):
         st.caption("Prueba rutas candidatas para descubrir cuál existe en tu tenant.")
@@ -1637,11 +1639,14 @@ with tab_migration:
         )
         endpoints_path = st.text_input(
             "Ruta de listado",
-            value=DEFAULT_ENDPOINTS_PATH,
+            value=selected_migration_source_console.get("endpoints_path", DEFAULT_ENDPOINTS_PATH),
             placeholder="/nebula/v1/endpoints",
             help="Ruta relativa del listado. Si tu tenant usa otra, cámbiala aquí.",
         )
-        request_method = st.selectbox("Método", options=["POST", "GET"], index=0)
+        _method_options = ["POST", "GET"]
+        _method_default = selected_migration_source_console.get("endpoints_method", "POST").upper()
+        _method_index = _method_options.index(_method_default) if _method_default in _method_options else 0
+        request_method = st.selectbox("Método", options=_method_options, index=_method_index)
         account_id = st.text_input(
             "Account ID (para POST)",
             value=prefill_source_account_id,
