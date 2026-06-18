@@ -48,6 +48,7 @@ def load_available_migrations() -> dict:
                         "account_id": os.getenv(f"{prefix}SOURCE_ACCOUNT_ID", ""),
                         "scope": os.getenv(f"{prefix}SOURCE_SCOPE", "read write execute"),
                         "endpoints_path": os.getenv(f"{prefix}SOURCE_ENDPOINTS_PATH", "/nebula/v1/endpoints"),
+                        "endpoints_method": os.getenv(f"{prefix}SOURCE_ENDPOINTS_METHOD", "GET"),
                     }
                     
                     # Cargar configuración TARGET
@@ -1662,22 +1663,20 @@ with tab_migration:
                 st.success(f"Endpoints obtenidos: {len(endpoints)}")
                 st.json(list_detail)
                 st.session_state["listed_endpoints"] = endpoints
-
-                if endpoints:
-                    st.download_button(
-                        "Descargar listado completo (CSV)",
-                        data=endpoints_to_csv(endpoints),
-                        file_name="endpoints.csv",
-                        mime="text/csv",
-                        use_container_width=True,
-                    )
-                else:
+                if not endpoints:
                     st.info("No se encontraron endpoints.")
             else:
                 st.error("No se pudo listar endpoints.")
                 st.json(list_detail)
 
     if st.session_state.get("listed_endpoints"):
+        st.download_button(
+            "⬇ Descargar listado completo (CSV)",
+            data=endpoints_to_csv(st.session_state["listed_endpoints"]),
+            file_name="endpoints.csv",
+            mime="text/csv",
+            use_container_width=True,
+        )
         st.divider()
         st.subheader("3) Selección para migración")
         st.caption("Marca con checkbox los endpoints que quieres migrar.")
