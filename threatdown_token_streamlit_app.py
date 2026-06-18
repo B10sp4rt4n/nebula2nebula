@@ -1625,77 +1625,37 @@ with tab_migration:
                 else:
                     st.warning("Ninguna ruta candidata devolvió 2xx. Revisa documentación de tu tenant/API.")
 
-    with st.form("list_endpoints_form"):
-        list_access_token = st.text_input(
-            "Access Token para listado",
-            value=st.session_state.get("last_access_token", ""),
-            placeholder="Pega aquí tu bearer token",
-            type="password",
-        )
-        list_api_base_url = st.text_input(
-            "API Base URL",
-            value=st.session_state.get("source_api_base_url", prefill_api_base_url),
-            help="Ejemplo: https://api.threatdown.com o https://api.malwarebytes.com",
-        )
-        endpoints_path = st.text_input(
-            "Ruta de listado",
-            value=selected_migration_source_console.get("endpoints_path", DEFAULT_ENDPOINTS_PATH),
-            placeholder="/nebula/v1/endpoints",
-            help="Ruta relativa del listado. Si tu tenant usa otra, cámbiala aquí.",
-        )
-        _method_options = ["POST", "GET"]
-        _method_default = selected_migration_source_console.get("endpoints_method", "POST").upper()
-        _method_index = _method_options.index(_method_default) if _method_default in _method_options else 0
-        request_method = st.selectbox("Método", options=_method_options, index=_method_index)
-        account_id = st.text_input(
-            "Account ID (para POST)",
-            value=prefill_source_account_id,
-            help="Algunos tenants requieren header accountid para listar endpoints.",
-        )
-        page_size = st.number_input("Page size", min_value=1, max_value=500, value=200, step=1)
-        max_pages = st.number_input("Max pages (0 = sin límite)", min_value=0, max_value=1000, value=0, step=1)
-        list_submitted = st.form_submit_button("Listar endpoints", use_container_width=True)
+    # Sección 2: valores fijos desde la consola activa, sin form
+    _list_api_base_url = selected_migration_source_console.get("api_base_url", prefill_api_base_url)
+    _list_endpoints_path = selected_migration_source_console.get("endpoints_path", DEFAULT_ENDPOINTS_PATH)
+    _list_method = selected_migration_source_console.get("endpoints_method", "POST").upper()
+    _list_account_id = selected_migration_source_console.get("account_id", prefill_source_account_id)
+    st.caption(f"Base URL: `{_list_api_base_url}` · Ruta: `{_list_endpoints_path}` · Método: `{_list_method}` · Account ID: `{_list_account_id[:8]}…`")
+
+    list_submitted = st.button("▶ Listar endpoints", use_container_width=True, type="primary")
 
     if list_submitted:
-        # Auto-obtener token si no hay uno en sesión
-        _use_token = list_access_token.strip()
-        if not _use_token and selected_migration_source_console.get("client_id"):
-            with st.spinner("Obteniendo token automáticamente..."):
-                _auto_tok, _auto_payload = get_token(
-                    selected_migration_source_console.get("client_id", ""),
-                    selected_migration_source_console.get("client_secret", ""),
-                    selected_migration_source_console.get("scope", DEFAULT_SCOPE),
-                    token_url=selected_migration_source_console.get("token_url", TOKEN_URL),
-                )
-            if _auto_tok:
-                _use_token = _auto_tok
-                st.session_state["last_access_token"] = _auto_tok
-            else:
-                st.error("No se pudo obtener el token automáticamente.")
-                st.json(_auto_payload)
-
+        with st.spinner("Autenticando..."):
+            _use_token, _auto_payload = get_token(
+                selected_migration_source_console.get("client_id", prefill_client_id),
+                selected_migration_source_console.get("client_secret", prefill_client_secret),
+                selected_migration_source_console.get("scope", DEFAULT_SCOPE),
+                token_url=selected_migration_source_console.get("token_url", TOKEN_URL),
+            )
         if not _use_token:
-            st.error("Falta el Access Token para listar endpoints.")
-        elif selected_migration_source_console.get("kind") == "OneView":
-            st.error(
-                "La consola de origen seleccionada es OneView. "
-                "Para OneView usa la pestaña 'Edron OneView'; este paso lista endpoints Nebula y requiere accountid."
-            )
-        elif request_method == "POST" and not account_id.strip():
-            st.error(
-                "Falta el Account ID para listar endpoints Nebula por POST. "
-                "Selecciona una consola Nebula con accountid o captura el valor manualmente."
-            )
+            st.error("No se pudo obtener el token. Revisa credenciales de la consola origen.")
+            st.json(_auto_payload)
         else:
+            st.session_state["last_access_token"] = _use_token
             with st.spinner("Consultando todos los endpoints..."):
                 endpoints, list_detail = get_all_endpoints(
                     _use_token,
-                    endpoints_path=endpoints_path.strip() or DEFAULT_ENDPOINTS_PATH,
-                    api_base_url=list_api_base_url.strip() or API_BASE_URL,
-                    request_method=request_method,
-                    account_id=account_id.strip(),
-                    page_size=int(page_size),
-                    max_pages=int(max_pages),
+                    endpoints_path=_list_endpoints_path,
+                    api_base_url=_list_api_base_url,
+                    request_method=_list_method,
+                    account_id=_list_account_id,
+                    page_size=200,
+                    max_pages=0,
                 )
 
             if endpoints is not None:
