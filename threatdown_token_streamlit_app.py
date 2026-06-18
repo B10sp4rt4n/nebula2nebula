@@ -676,13 +676,26 @@ def extract_machine_id(ep: dict) -> str:
     )
 
 
+def _get_mid_for_log(row: dict, machine_id_field: str) -> str:
+    if machine_id_field == "machine.id":
+        m = row.get("machine", {})
+        return m.get("id", "") if isinstance(m, dict) else ""
+    return str(row.get(machine_id_field, "")).strip()
+
+
 def endpoint_to_selection_row(ep: dict) -> dict:
     # Usa los campos reales del endpoint (igual que el CSV), solo antepone 'migrar'
     return {"migrar": False, **ep}
 
 
-def build_migration_payload_variants(selected_rows: list, destination_account_token: str, command_name: str) -> list:
-    machine_ids = [mid for row in selected_rows if (mid := extract_machine_id(row))]
+def build_migration_payload_variants(selected_rows: list, destination_account_token: str, command_name: str, machine_id_field: str = "id") -> list:
+    def _get_mid(row: dict) -> str:
+        if machine_id_field == "machine.id":
+            m = row.get("machine", {})
+            return m.get("id", "") if isinstance(m, dict) else ""
+        return str(row.get(machine_id_field, "")).strip()
+
+    machine_ids = [mid for row in selected_rows if (mid := _get_mid(row))]
 
     variants = [
         {
@@ -1697,6 +1710,17 @@ with tab_migration:
         st.subheader("4) Ejecutar migración")
         st.caption("Crea un job en el origen para cambiar el account token de los endpoints seleccionados.")
 
+        # Detectar campos disponibles en los endpoints para selector de machine_id
+        _sample_ep = st.session_state["listed_endpoints"][0] if st.session_state.get("listed_endpoints") else {}
+        _ep_fields = [k for k, v in _sample_ep.items() if isinstance(v, str) and v.strip()]
+        _machine_obj = _sample_ep.get("machine", {})
+        if isinstance(_machine_obj, dict):
+            _ep_fields = ["machine.id"] + _ep_fields
+        _default_id_field = next(
+            (f for f in ["machine.id", "id", "machine_id", "agent_id"] if f in _ep_fields),
+            _ep_fields[0] if _ep_fields else "id",
+        )
+
         with st.expander("Diagnóstico endpoint de move"):
             st.caption("Prueba rutas candidatas de jobs. Si responde distinto de 404, la ruta existe.")
             probe_move_token = st.text_input(
@@ -1763,6 +1787,12 @@ with tab_migration:
             )
             move_path = st.text_input("Jobs Path", value=prefill_move_path)
             migration_command = st.text_input("Command", value=DEFAULT_MIGRATION_COMMAND)
+            machine_id_field = st.selectbox(
+                "Campo a usar como machine_id",
+                options=_ep_fields or ["id"],
+                index=(_ep_fields.index(_default_id_field) if _default_id_field in _ep_fields else 0),
+                help="Campo del endpoint que se enviará como machine_ids al job. Revisa el diagnóstico del endpoint si la lista está vacía.",
+            )
             batch_size = st.selectbox("Tamano de batch", options=[1, 5, 10], index=1)
             dry_run = st.checkbox("Dry run (solo simular y mostrar payload)", value=True)
             execute_migration = st.form_submit_button("Ejecutar migración", use_container_width=True)
@@ -1797,6 +1827,24 @@ with tab_migration:
 
                 selected_batches = chunk_rows(selected_rows, int(batch_size))
 
+                # Verificar que se puedan extraer machine_ids antes de proceder
+                _preview_ids = []
+                for _r in selected_rows:
+                    if machine_id_field == "machine.id":
+                        _m = _r.get("machine", {})
+                        _mid = _m.get("id", "") if isinstance(_m, dict) else ""
+                    else:
+                        _mid = str(_r.get(machine_id_field, "")).strip()
+                    if _mid:
+                        _preview_ids.append(_mid)
+                if not _preview_ids:
+                    st.error(
+                        f"El campo `{machine_id_field}` está vacío en todos los endpoints seleccionados. "
+                        f"Campos disponibles: {_ep_fields}"
+                    )
+                    st.json(_sample_ep)
+                    st.stop()
+
                 effective_move_path = move_path.strip() or DEFAULT_TARGET_MOVE_PATH
                 # Compatibilidad: el comando changeaccounttoken se ejecuta en /nebula/v1/jobs.
                 if effective_move_path.rstrip("/") in {"/nebula/v1/endpoints/move", "/v1/endpoints/move"}:
@@ -1812,6 +1860,7 @@ with tab_migration:
                         batch_rows,
                         destination_account_token=effective_destination_account_token,
                         command_name=migration_command.strip() or DEFAULT_MIGRATION_COMMAND,
+                        machine_id_field=machine_id_field,
                     )
                     for variant in payload_variants:
                         dry_run_payloads.append(
@@ -1837,6 +1886,7 @@ with tab_migration:
                             batch_rows,
                             destination_account_token=effective_destination_account_token,
                             command_name=migration_command.strip() or DEFAULT_MIGRATION_COMMAND,
+                            machine_id_field=machine_id_field,
                         )
 
                         with st.spinner(
@@ -1855,7 +1905,7 @@ with tab_migration:
                             {
                                 "batch": batch_index,
                                 "batch_size": len(batch_rows),
-                                "machine_ids": [r.get("machine_id", "") for r in batch_rows if r.get("machine_id")],
+                                "machine_ids": [mid for r in batch_rows if (mid := _get_mid_for_log(r, machine_id_field))],
                                 "ok": ok,
                                 "result": migration_result,
                             }
