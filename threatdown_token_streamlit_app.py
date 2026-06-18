@@ -1402,28 +1402,45 @@ else:
 
 console_catalog = build_console_catalog()
 console_lookup = {console["key"]: console for console in console_catalog}
-all_console_keys = [console["key"] for console in console_catalog]
-nebula_console_keys = [console["key"] for console in console_catalog if console.get("kind") == "Nebula"]
-oneview_console_keys = [console["key"] for console in console_catalog if console.get("kind") == "OneView"]
 
-with st.expander("Tabla de consolas configuradas", expanded=True):
-    if console_catalog:
-        st.dataframe(build_console_catalog_df(console_catalog), hide_index=True, use_container_width=True)
+# Si hay migraciones MIGRATION_N_* configuradas, filtrar el catálogo a solo
+# las consolas de la migración activa para no mezclar con esquema antiguo.
+_active_mid = st.session_state.get("selected_migration", 1)
+_active_mid_src_key = f"migration_{_active_mid}_source"
+_active_mid_tgt_key = f"migration_{_active_mid}_target"
+_migration_keys_present = any(k.startswith("migration_") for k in console_lookup)
+
+if _migration_keys_present:
+    # Solo mostrar consolas de la migración activa
+    all_console_keys = [k for k in console_lookup if k in (_active_mid_src_key, _active_mid_tgt_key)]
+    nebula_console_keys = [k for k in all_console_keys if console_lookup[k].get("kind") == "Nebula"]
+    oneview_console_keys = [k for k in console_lookup if console_lookup[k].get("kind") == "OneView"]
+else:
+    all_console_keys = [console["key"] for console in console_catalog]
+    nebula_console_keys = [console["key"] for console in console_catalog if console.get("kind") == "Nebula"]
+    oneview_console_keys = [console["key"] for console in console_catalog if console.get("kind") == "OneView"]
+
+with st.expander("Consolas configuradas", expanded=False):
+    visible_catalog = [console_lookup[k] for k in all_console_keys if k in console_lookup]
+    if visible_catalog:
+        st.dataframe(build_console_catalog_df(visible_catalog), hide_index=True, use_container_width=True)
     else:
         st.warning("No se detectaron consolas configuradas en el entorno actual.")
 
     if len(nebula_console_keys) < 2:
         st.warning("Se necesitan al menos dos consolas Nebula configuradas para elegir origen y destino sin repetir.")
 
-migration_origin_default = st.session_state.get("migration_origin_console_key", all_console_keys[0] if all_console_keys else "")
-if migration_origin_default not in all_console_keys and all_console_keys:
-    migration_origin_default = all_console_keys[0]
+# Auto-seleccionar origen/destino según migración activa
+if _migration_keys_present and _active_mid_src_key in console_lookup:
+    migration_origin_default = _active_mid_src_key
+    migration_destination_default = _active_mid_tgt_key if _active_mid_tgt_key in console_lookup else ""
+else:
+    migration_origin_default = st.session_state.get("migration_origin_console_key", all_console_keys[0] if all_console_keys else "")
+    if migration_origin_default not in all_console_keys and all_console_keys:
+        migration_origin_default = all_console_keys[0]
+    migration_destination_default = st.session_state.get("migration_destination_console_key", "")
 
 migration_destination_candidates = [key for key in nebula_console_keys if key != migration_origin_default]
-migration_destination_default = st.session_state.get(
-    "migration_destination_console_key",
-    migration_destination_candidates[0] if migration_destination_candidates else "",
-)
 if migration_destination_default not in migration_destination_candidates and migration_destination_candidates:
     migration_destination_default = migration_destination_candidates[0]
 
@@ -1446,7 +1463,7 @@ selected_edron_destination_console = console_lookup.get(edron_destination_defaul
 tab_migration, tab_edron = st.tabs(["Migracion", "Edron OneView"])
 
 with tab_migration:
-    with st.expander("Recomendación de seguridad", expanded=True):
+    with st.expander("Recomendación de seguridad", expanded=False):
         st.warning(
             "No pegues secretos reales en código fuente ni los subas a Git. "
             "Lo ideal es usar variables de entorno o un secret manager. "
@@ -1455,30 +1472,33 @@ with tab_migration:
 
     st.subheader("Consolas de la migración")
     if all_console_keys:
-        col_console_1, col_console_2 = st.columns(2)
-        migration_origin_key = col_console_1.selectbox(
-            "Consola de origen",
-            options=all_console_keys,
-            index=all_console_keys.index(migration_origin_default),
-            format_func=lambda key: format_console_option(console_lookup[key]),
-            key="migration_origin_console_key",
-        )
-        migration_destination_options = [key for key in nebula_console_keys if key != migration_origin_key]
-        migration_destination_key = col_console_2.selectbox(
-            "Consola de destino",
-            options=migration_destination_options,
-            index=migration_destination_options.index(migration_destination_default)
-            if migration_destination_default in migration_destination_options else 0,
-            format_func=lambda key: format_console_option(console_lookup[key]),
-            key="migration_destination_console_key",
-        )
-        selected_migration_destination_console = console_lookup[migration_destination_key]
-        selected_migration_source_console = console_lookup[migration_origin_key]
-        st.caption(
-            "Origen activo: "
-            f"{format_console_option(selected_migration_source_console)} | "
-            f"Destino activo: {format_console_option(selected_migration_destination_console) if selected_migration_destination_console else 'Sin destino'}"
-        )
+        if _migration_keys_present:
+            # En modo multi-migración: origen y destino fijos por migración seleccionada
+            migration_origin_key = migration_origin_default if migration_origin_default in all_console_keys else (all_console_keys[0] if all_console_keys else "")
+            migration_destination_key = migration_destination_default if migration_destination_default in nebula_console_keys else (migration_destination_candidates[0] if migration_destination_candidates else "")
+            col_console_1, col_console_2 = st.columns(2)
+            col_console_1.info(f"**Origen:** {console_lookup.get(migration_origin_key, {}).get('label', migration_origin_key)}")
+            col_console_2.info(f"**Destino:** {console_lookup.get(migration_destination_key, {}).get('label', migration_destination_key)}")
+        else:
+            col_console_1, col_console_2 = st.columns(2)
+            migration_origin_key = col_console_1.selectbox(
+                "Consola de origen",
+                options=all_console_keys,
+                index=all_console_keys.index(migration_origin_default),
+                format_func=lambda key: format_console_option(console_lookup[key]),
+                key="migration_origin_console_key",
+            )
+            migration_destination_options = [key for key in nebula_console_keys if key != migration_origin_key]
+            migration_destination_key = col_console_2.selectbox(
+                "Consola de destino",
+                options=migration_destination_options,
+                index=migration_destination_options.index(migration_destination_default)
+                if migration_destination_default in migration_destination_options else 0,
+                format_func=lambda key: format_console_option(console_lookup[key]),
+                key="migration_destination_console_key",
+            )
+        selected_migration_destination_console = console_lookup.get(migration_destination_key, {})
+        selected_migration_source_console = console_lookup.get(migration_origin_key, {})
     else:
         migration_origin_key = ""
         migration_destination_key = ""
