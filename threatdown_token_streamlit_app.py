@@ -667,14 +667,41 @@ def match_excel_rows_to_selection(
 
 def endpoint_to_selection_row(ep: dict) -> dict:
     machine = ep.get("machine", {}) if isinstance(ep.get("machine"), dict) else {}
+    # machine_id: intenta campo anidado primero, luego campo directo, luego id del endpoint
+    machine_id = (
+        machine.get("id", "")
+        or ep.get("machine_id", "")
+        or ep.get("agent_id", "")
+    )
+    name = (
+        ep.get("name")
+        or ep.get("display_name")
+        or ep.get("hostname")
+        or machine.get("name", "")
+        or ""
+    )
+    online = ep.get("online", ep.get("is_online", ""))
+    last_seen = (
+        ep.get("last_seen_at")
+        or ep.get("last_seen")
+        or ep.get("last_active_at")
+        or ep.get("last_active")
+        or ""
+    )
+    os_platform = (
+        ep.get("os_platform")
+        or ep.get("os")
+        or ep.get("operating_system")
+        or ""
+    )
     return {
         "migrar": False,
         "id": ep.get("id", ""),
-        "machine_id": machine.get("id", ""),
-        "name": ep.get("name") or ep.get("display_name", ""),
-        "online": ep.get("online", ""),
-        "last_seen_at": ep.get("last_seen_at", ""),
-        "os_platform": ep.get("os_platform", ""),
+        "machine_id": machine_id,
+        "name": name,
+        "online": online,
+        "last_seen_at": last_seen,
+        "os_platform": os_platform,
     }
 
 
@@ -1645,6 +1672,10 @@ with tab_migration:
         st.divider()
         st.subheader("3) Selección para migración")
         st.caption("Marca con checkbox los endpoints que quieres migrar.")
+
+        with st.expander(f"🔍 Estructura del primer endpoint (diagnóstico)"):
+            if st.session_state["listed_endpoints"]:
+                st.json(st.session_state["listed_endpoints"][0])
 
         selection_rows = [endpoint_to_selection_row(ep) for ep in st.session_state["listed_endpoints"]]
 
