@@ -58,6 +58,7 @@ def load_available_migrations() -> dict:
                         "client_id": os.getenv(f"{prefix}TARGET_CLIENT_ID", ""),
                         "client_secret": os.getenv(f"{prefix}TARGET_CLIENT_SECRET", ""),
                         "account_id": os.getenv(f"{prefix}TARGET_ACCOUNT_ID", ""),
+                        "account_token": os.getenv(f"{prefix}TARGET_ACCOUNT_TOKEN", ""),
                         "scope": os.getenv(f"{prefix}TARGET_SCOPE", "read write execute"),
                         "move_endpoint_path": os.getenv(f"{prefix}TARGET_MOVE_ENDPOINT_PATH", "/nebula/v1/jobs"),
                     }
@@ -363,7 +364,7 @@ def build_console_catalog() -> list:
                 "client_secret": tgt.get("client_secret", ""),
                 "account_id": tgt.get("account_id", ""),
                 "scope": tgt.get("scope", "read write execute"),
-                "account_token": os.getenv("DESTINATION_ACCOUNT_TOKEN", ""),
+                "account_token": tgt.get("account_token", "") or os.getenv("DESTINATION_ACCOUNT_TOKEN", ""),
                 "move_path": tgt.get("move_endpoint_path", "/nebula/v1/jobs"),
             })
             existing_client_ids.add(tgt_cid)
