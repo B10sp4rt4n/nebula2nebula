@@ -2008,9 +2008,63 @@ with tab_migration:
         )
 
         if not _live_job_ids:
-            st.info("Ejecuta la migración en el paso 4 para ver el reporte aquí.")
+            st.info("Ejecuta la migración en el paso 4 para ver el reporte de los jobs de esta sesión.")
 
-        refresh_jobs = st.button("🔄 Refresh estado de jobs", use_container_width=True, type="primary", disabled=not _live_job_ids)
+        col_r1, col_r2 = st.columns(2)
+        refresh_jobs = col_r1.button("🔄 Refresh jobs de sesión", use_container_width=True, type="primary", disabled=not _live_job_ids)
+        list_all_jobs = col_r2.button("📋 Ver todos los jobs pendientes", use_container_width=True)
+
+        def _ensure_token():
+            tok = st.session_state.get("last_access_token", "")
+            if not tok:
+                tok, _ = get_token(
+                    selected_migration_source_console.get("client_id", prefill_client_id),
+                    selected_migration_source_console.get("client_secret", prefill_client_secret),
+                    selected_migration_source_console.get("scope", DEFAULT_SCOPE),
+                    token_url=selected_migration_source_console.get("token_url", TOKEN_URL),
+                )
+                if tok:
+                    st.session_state["last_access_token"] = tok
+            return tok
+
+        if list_all_jobs:
+            with st.spinner("Autenticando y consultando jobs..."):
+                _tok = _ensure_token()
+            if not _tok:
+                st.error("No se pudo obtener el token.")
+            else:
+                with st.spinner("Consultando /nebula/v1/jobs ..."):
+                    _all_jobs, _all_jobs_detail = get_all_endpoints(
+                        _tok,
+                        endpoints_path="/nebula/v1/jobs",
+                        api_base_url=_live_api_base,
+                        request_method="GET",
+                        account_id=_live_account_id,
+                        page_size=200,
+                        max_pages=0,
+                    )
+                if _all_jobs is not None:
+                    st.success(f"Jobs encontrados: {len(_all_jobs)}")
+                    _jobs_df = pd.DataFrame([
+                        {
+                            "job_id": j.get("id", j.get("job_id", "")),
+                            "status": j.get("status", j.get("state", "")),
+                            "command": j.get("command", ""),
+                            "machine_id": j.get("machine_id", ""),
+                            "issued_at": j.get("issued_at", j.get("created_at", "")),
+                            "expires_at": j.get("expires_at", ""),
+                        }
+                        for j in _all_jobs
+                    ])
+                    st.dataframe(_jobs_df, use_container_width=True)
+                    # Guardar IDs en sesión para usar con refresh
+                    _ids_from_list = [str(j.get("id", j.get("job_id", ""))) for j in _all_jobs if j.get("id") or j.get("job_id")]
+                    if _ids_from_list:
+                        st.session_state["last_job_ids"] = _ids_from_list
+                        st.info(f"{len(_ids_from_list)} job IDs guardados en sesión. Usa '🔄 Refresh jobs de sesión' para ver su estado detallado.")
+                else:
+                    st.error("No se pudo consultar jobs.")
+                    st.json(_all_jobs_detail)
 
         if refresh_jobs:
             if not _live_token:
