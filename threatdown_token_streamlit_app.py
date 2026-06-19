@@ -535,20 +535,45 @@ def get_all_endpoints(
         return None, detail
 
 
-def endpoints_to_csv(endpoints: list) -> str:
+def endpoints_to_csv(endpoints: list, migration_key: str = "") -> str:
     if not endpoints:
         return ""
-    # Usar todas las claves presentes en los datos reales
-    all_keys: list = []
-    for ep in endpoints:
-        for k in ep.keys():
-            if k not in all_keys:
-                all_keys.append(k)
     output = StringIO()
-    writer = csv.DictWriter(output, fieldnames=all_keys, extrasaction="ignore")
-    writer.writeheader()
-    for ep in endpoints:
-        writer.writerow({k: ep.get(k, "") for k in all_keys})
+    if "migration_1" in migration_key:
+        # EDRON: campos planos de la estructura Nebula estándar
+        fieldnames = ["id", "display_name", "protection_status", "link"]
+        writer = csv.DictWriter(output, fieldnames=fieldnames, extrasaction="ignore")
+        writer.writeheader()
+        for ep in endpoints:
+            machine = ep.get("machine", {}) if isinstance(ep.get("machine"), dict) else {}
+            writer.writerow({
+                "id": machine.get("id", ep.get("id", "")),
+                "display_name": ep.get("display_name", ""),
+                "protection_status": ep.get("protection_status", ""),
+                "link": ep.get("link", ""),
+            })
+    else:
+        # MLTi: campos planos específicos (excluye nics, plugins, os_info, etc.)
+        fieldnames = ["machine_id", "host_name", "serial_number", "os_platform",
+                      "machine_ip", "last_seen", "account_id", "group_id",
+                      "engine_version", "last_user", "join_type"]
+        writer = csv.DictWriter(output, fieldnames=fieldnames, extrasaction="ignore")
+        writer.writeheader()
+        for ep in endpoints:
+            os_info = ep.get("os_info", {}) if isinstance(ep.get("os_info"), dict) else {}
+            writer.writerow({
+                "machine_id": ep.get("machine_id", ""),
+                "host_name": ep.get("host_name", ""),
+                "serial_number": ep.get("serial_number", ""),
+                "os_platform": os_info.get("os_platform", ""),
+                "machine_ip": ep.get("machine_ip", ""),
+                "last_seen": ep.get("at", ""),
+                "account_id": ep.get("account_id", ""),
+                "group_id": ep.get("group_id", ""),
+                "engine_version": ep.get("engine_version", ""),
+                "last_user": ep.get("last_user", ""),
+                "join_type": ep.get("join_type", ""),
+            })
     return output.getvalue()
 
 
@@ -1673,7 +1698,7 @@ with tab_migration:
     if st.session_state.get("listed_endpoints"):
         st.download_button(
             "⬇ Descargar listado completo (CSV)",
-            data=endpoints_to_csv(st.session_state["listed_endpoints"]),
+            data=endpoints_to_csv(st.session_state["listed_endpoints"], migration_key=migration_origin_key),
             file_name="endpoints.csv",
             mime="text/csv",
             use_container_width=True,
