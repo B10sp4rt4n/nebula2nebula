@@ -542,7 +542,7 @@ def endpoints_to_csv(endpoints: list, migration_key: str = "") -> str:
     output = StringIO()
     if "migration_1" in migration_key:
         # EDRON: campos planos de la estructura Nebula estándar
-        fieldnames = ["machine_id", "display_name", "protection_status", "link"]
+        fieldnames = ["machine_id", "display_name", "online", "protection_status", "link"]
         writer = csv.DictWriter(output, fieldnames=fieldnames, extrasaction="ignore")
         writer.writeheader()
         for ep in endpoints:
@@ -550,12 +550,13 @@ def endpoints_to_csv(endpoints: list, migration_key: str = "") -> str:
             writer.writerow({
                 "machine_id": machine.get("id", ""),
                 "display_name": ep.get("display_name", ""),
+                "online": machine.get("online", ep.get("connected", "")),
                 "protection_status": ep.get("protection_status", ""),
                 "link": ep.get("link", ""),
             })
     else:
         # MLTi: {machine: {id,...}, agent: {host_name, os_info,...}, ...}
-        fieldnames = ["machine_id", "host_name", "serial_number", "os_platform",
+        fieldnames = ["machine_id", "host_name", "online", "serial_number", "os_platform",
                       "machine_ip", "last_seen", "account_id", "group_id",
                       "engine_version", "last_user", "protection_status"]
         writer = csv.DictWriter(output, fieldnames=fieldnames, extrasaction="ignore")
@@ -567,6 +568,7 @@ def endpoints_to_csv(endpoints: list, migration_key: str = "") -> str:
             writer.writerow({
                 "machine_id": machine.get("id", ""),
                 "host_name": agent.get("host_name", ep.get("display_name", "")),
+                "online": machine.get("online", ep.get("connected", "")),
                 "serial_number": agent.get("serial_number", ""),
                 "os_platform": os_info.get("os_platform", ""),
                 "machine_ip": agent.get("machine_ip", ""),
@@ -719,6 +721,7 @@ def endpoint_to_selection_row(ep: dict, migration_key: str = "") -> dict:
             "migrar": False,
             "machine_id": machine.get("id", ""),
             "display_name": ep.get("display_name", ""),
+            "online": machine.get("online", ep.get("connected", "")),
             "protection_status": ep.get("protection_status", ""),
             "link": ep.get("link", ""),
         }
@@ -730,9 +733,10 @@ def endpoint_to_selection_row(ep: dict, migration_key: str = "") -> dict:
             "migrar": False,
             "machine_id": machine.get("id", ""),
             "host_name": agent.get("host_name", ep.get("display_name", "")),
+            "online": machine.get("online", ep.get("connected", "")),
             "os_platform": os_info.get("os_platform", ""),
             "machine_ip": agent.get("machine_ip", ""),
-"last_seen": machine.get("last_day_seen", machine.get("last_seen_at", agent.get("at", ""))),
+            "last_seen": machine.get("last_day_seen", machine.get("last_seen_at", agent.get("at", ""))),
             "protection_status": ep.get("protection_status", ""),
             "account_id": machine.get("account_id", ""),
         }
