@@ -2012,7 +2012,7 @@ with tab_migration:
 
         col_r1, col_r2 = st.columns(2)
         refresh_jobs = col_r1.button("🔄 Refresh jobs de sesión", use_container_width=True, type="primary", disabled=not _live_job_ids)
-        list_all_jobs = col_r2.button("📋 Ver todos los jobs pendientes", use_container_width=True)
+        list_all_jobs = col_r2.button("📋 Ver todos los jobs pendientes", use_container_width=True, disabled=True, help="Esta API no soporta listar todos los jobs. Los IDs se guardan automáticamente al ejecutar la migración en el paso 4.")
 
         def _ensure_token():
             tok = st.session_state.get("last_access_token", "")
