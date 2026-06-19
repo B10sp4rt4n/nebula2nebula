@@ -1720,6 +1720,8 @@ with tab_migration:
         selection_df = pd.DataFrame(selection_rows)
         # Columnas deshabilitadas = todas menos 'migrar'
         _disabled_cols = [c for c in selection_df.columns if c != "migrar"]
+        # Key dinámico para forzar re-render cuando cambian los endpoints
+        _editor_key = f"migration_selector_editor_{migration_origin_key}_{len(st.session_state['listed_endpoints'])}"
 
         edited_df = st.data_editor(
             selection_df,
@@ -1729,7 +1731,7 @@ with tab_migration:
                 "migrar": st.column_config.CheckboxColumn("Migrar", help="Selecciona endpoint para migración"),
             },
             disabled=_disabled_cols,
-            key="migration_selector_editor",
+            key=_editor_key,
         )
 
         selected_df = edited_df[edited_df["migrar"] == True]  # noqa: E712
