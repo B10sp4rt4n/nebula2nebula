@@ -1995,60 +1995,46 @@ with tab_migration:
         st.subheader("5) Reporte vivo de migración")
         st.caption("Consulta el estado real de los jobs y actualiza el porcentaje completado con el botón Refresh.")
 
-        live_ctx = st.session_state.get("last_migration_context", {})
-        default_live_token = live_ctx.get("access_token", st.session_state.get("last_access_token", ""))
-        default_live_api_base = live_ctx.get("api_base_url", st.session_state.get("source_api_base_url", API_BASE_URL))
-        default_live_account = live_ctx.get("source_account_id", DEFAULT_SOURCE_ACCOUNT_ID)
-        default_live_job_ids = st.session_state.get("last_job_ids", [])
+        # Todos los valores se toman automáticamente de la sesión / consola activa
+        _live_token = st.session_state.get("last_access_token", "")
+        _live_api_base = selected_migration_source_console.get("api_base_url", API_BASE_URL)
+        _live_account_id = selected_migration_source_console.get("account_id", prefill_source_account_id)
+        _live_job_ids = st.session_state.get("last_job_ids", [])
 
-        live_access_token = st.text_input(
-            "Access Token para reporte",
-            value=default_live_token,
-            type="password",
-            key="live_report_access_token",
-        )
-        live_api_base_url = st.text_input(
-            "API Base URL para reporte",
-            value=default_live_api_base,
-            key="live_report_api_base",
-        )
-        live_account_id = st.text_input(
-            "Source Account ID para reporte",
-            value=default_live_account,
-            key="live_report_account_id",
-        )
-        live_job_ids_text = st.text_area(
-            "Job IDs (uno por línea)",
-            value="\n".join(default_live_job_ids),
-            height=180,
-            key="live_report_job_ids",
+        st.caption(
+            f"Consola origen: `{selected_migration_source_console.get('label', '')}` · "
+            f"Account ID: `{_live_account_id[:8]}…` · "
+            f"Jobs en sesión: **{len(_live_job_ids)}**"
         )
 
-        refresh_jobs = st.button("Refresh estado de jobs", use_container_width=True, type="primary")
+        if not _live_job_ids:
+            st.info("Ejecuta la migración en el paso 4 para ver el reporte aquí.")
+
+        refresh_jobs = st.button("🔄 Refresh estado de jobs", use_container_width=True, type="primary", disabled=not _live_job_ids)
 
         if refresh_jobs:
-            job_ids = []
-            for line in live_job_ids_text.splitlines():
-                jid = line.strip()
-                if jid and jid not in job_ids:
-                    job_ids.append(jid)
-
-            if not live_access_token.strip():
-                st.error("Falta Access Token para consultar estado de jobs.")
-            elif not job_ids:
-                st.error("Faltan Job IDs para consultar el reporte.")
+            if not _live_token:
+                # Auto-obtener token si no hay uno en sesión
+                with st.spinner("Autenticando..."):
+                    _live_token, _ = get_token(
+                        selected_migration_source_console.get("client_id", prefill_client_id),
+                        selected_migration_source_console.get("client_secret", prefill_client_secret),
+                        selected_migration_source_console.get("scope", DEFAULT_SCOPE),
+                        token_url=selected_migration_source_console.get("token_url", TOKEN_URL),
+                    )
+            if not _live_token:
+                st.error("No se pudo obtener el token. Ejecuta primero el paso 2.")
             else:
                 with st.spinner("Consultando estado de jobs..."):
                     report_rows, report_summary = get_jobs_status_report(
-                        access_token=live_access_token.strip(),
-                        api_base_url=live_api_base_url.strip() or API_BASE_URL,
-                        origin_account_id=live_account_id.strip(),
-                        job_ids=job_ids,
+                        access_token=_live_token,
+                        api_base_url=_live_api_base,
+                        origin_account_id=_live_account_id,
+                        job_ids=_live_job_ids,
                     )
 
                 st.session_state["live_jobs_report_rows"] = report_rows
                 st.session_state["live_jobs_report_summary"] = report_summary
-                st.session_state["last_job_ids"] = job_ids
 
         if st.session_state.get("live_jobs_report_summary"):
             summary = st.session_state["live_jobs_report_summary"]
