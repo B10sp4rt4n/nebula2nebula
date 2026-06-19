@@ -569,7 +569,7 @@ def endpoints_to_csv(endpoints: list, migration_key: str = "") -> str:
                 "serial_number": agent.get("serial_number", ""),
                 "os_platform": os_info.get("os_platform", ""),
                 "machine_ip": agent.get("machine_ip", ""),
-                "last_seen": machine.get("last_seen_at", agent.get("at", "")),
+                "last_seen": machine.get("last_day_seen", machine.get("last_seen_at", agent.get("at", ""))),
                 "account_id": machine.get("account_id", ""),
                 "group_id": machine.get("group_id", ""),
                 "engine_version": agent.get("engine_version", ""),
@@ -731,7 +731,7 @@ def endpoint_to_selection_row(ep: dict, migration_key: str = "") -> dict:
             "host_name": agent.get("host_name", ep.get("display_name", "")),
             "os_platform": os_info.get("os_platform", ""),
             "machine_ip": agent.get("machine_ip", ""),
-            "last_seen": machine.get("last_seen_at", agent.get("at", "")),
+"last_seen": machine.get("last_day_seen", machine.get("last_seen_at", agent.get("at", ""))),
             "protection_status": ep.get("protection_status", ""),
             "account_id": machine.get("account_id", ""),
         }
