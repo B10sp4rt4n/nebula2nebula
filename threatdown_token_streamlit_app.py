@@ -541,38 +541,40 @@ def endpoints_to_csv(endpoints: list, migration_key: str = "") -> str:
     output = StringIO()
     if "migration_1" in migration_key:
         # EDRON: campos planos de la estructura Nebula estándar
-        fieldnames = ["id", "display_name", "protection_status", "link"]
+        fieldnames = ["machine_id", "display_name", "protection_status", "link"]
         writer = csv.DictWriter(output, fieldnames=fieldnames, extrasaction="ignore")
         writer.writeheader()
         for ep in endpoints:
             machine = ep.get("machine", {}) if isinstance(ep.get("machine"), dict) else {}
             writer.writerow({
-                "id": machine.get("id", ep.get("id", "")),
+                "machine_id": machine.get("id", ""),
                 "display_name": ep.get("display_name", ""),
                 "protection_status": ep.get("protection_status", ""),
                 "link": ep.get("link", ""),
             })
     else:
-        # MLTi: campos planos específicos (excluye nics, plugins, os_info, etc.)
+        # MLTi: {machine: {id,...}, agent: {host_name, os_info,...}, ...}
         fieldnames = ["machine_id", "host_name", "serial_number", "os_platform",
                       "machine_ip", "last_seen", "account_id", "group_id",
-                      "engine_version", "last_user", "join_type"]
+                      "engine_version", "last_user", "protection_status"]
         writer = csv.DictWriter(output, fieldnames=fieldnames, extrasaction="ignore")
         writer.writeheader()
         for ep in endpoints:
-            os_info = ep.get("os_info", {}) if isinstance(ep.get("os_info"), dict) else {}
+            machine = ep.get("machine", {}) if isinstance(ep.get("machine"), dict) else {}
+            agent = ep.get("agent", {}) if isinstance(ep.get("agent"), dict) else {}
+            os_info = agent.get("os_info", {}) if isinstance(agent.get("os_info"), dict) else {}
             writer.writerow({
-                "machine_id": ep.get("machine_id", ""),
-                "host_name": ep.get("host_name", ""),
-                "serial_number": ep.get("serial_number", ""),
+                "machine_id": machine.get("id", ""),
+                "host_name": agent.get("host_name", ep.get("display_name", "")),
+                "serial_number": agent.get("serial_number", ""),
                 "os_platform": os_info.get("os_platform", ""),
-                "machine_ip": ep.get("machine_ip", ""),
-                "last_seen": ep.get("at", ""),
-                "account_id": ep.get("account_id", ""),
-                "group_id": ep.get("group_id", ""),
-                "engine_version": ep.get("engine_version", ""),
-                "last_user": ep.get("last_user", ""),
-                "join_type": ep.get("join_type", ""),
+                "machine_ip": agent.get("machine_ip", ""),
+                "last_seen": machine.get("last_seen_at", agent.get("at", "")),
+                "account_id": machine.get("account_id", ""),
+                "group_id": machine.get("group_id", ""),
+                "engine_version": agent.get("engine_version", ""),
+                "last_user": agent.get("last_user", ""),
+                "protection_status": ep.get("protection_status", ""),
             })
     return output.getvalue()
 
@@ -709,9 +711,9 @@ def _get_mid_for_log(row: dict, machine_id_field: str) -> str:
 
 
 def endpoint_to_selection_row(ep: dict, migration_key: str = "") -> dict:
+    machine = ep.get("machine", {}) if isinstance(ep.get("machine"), dict) else {}
     if "migration_1" in migration_key:
         # EDRON: machine anidado, display_name, protection_status
-        machine = ep.get("machine", {}) if isinstance(ep.get("machine"), dict) else {}
         return {
             "migrar": False,
             "machine_id": machine.get("id", ""),
@@ -720,16 +722,18 @@ def endpoint_to_selection_row(ep: dict, migration_key: str = "") -> dict:
             "link": ep.get("link", ""),
         }
     else:
-        # MLTi: machine_id en raíz, host_name, os_info anidado
-        os_info = ep.get("os_info", {}) if isinstance(ep.get("os_info"), dict) else {}
+        # MLTi: {machine: {id, last_seen_at, ...}, agent: {host_name, os_info, ...}, display_name, ...}
+        agent = ep.get("agent", {}) if isinstance(ep.get("agent"), dict) else {}
+        os_info = agent.get("os_info", {}) if isinstance(agent.get("os_info"), dict) else {}
         return {
             "migrar": False,
-            "machine_id": ep.get("machine_id", ""),
-            "host_name": ep.get("host_name", ""),
+            "machine_id": machine.get("id", ""),
+            "host_name": agent.get("host_name", ep.get("display_name", "")),
             "os_platform": os_info.get("os_platform", ""),
-            "machine_ip": ep.get("machine_ip", ""),
-            "last_seen": ep.get("at", ""),
-            "account_id": ep.get("account_id", ""),
+            "machine_ip": agent.get("machine_ip", ""),
+            "last_seen": machine.get("last_seen_at", agent.get("at", "")),
+            "protection_status": ep.get("protection_status", ""),
+            "account_id": machine.get("account_id", ""),
         }
 
 
@@ -1755,16 +1759,13 @@ with tab_migration:
         st.subheader("4) Ejecutar migración")
         st.caption("Crea un job en el origen para cambiar el account token de los endpoints seleccionados.")
 
-        # Campo a usar como machine_id — depende de la migración activa
+        # Campo a usar como machine_id — ambas migraciones usan machine_id plano en la fila de selección
         _sample_ep = st.session_state["listed_endpoints"][0] if st.session_state.get("listed_endpoints") else {}
-        _ep_fields = [k for k, v in _sample_ep.items() if isinstance(v, str) and v.strip()]
         if "migration_1" in migration_origin_key:
-            # EDRON: machine_id está anidado en machine.id
-            _ep_fields = ["machine.id"] + _ep_fields
-            _default_id_field = "machine.id"
+            _ep_fields = ["machine_id", "display_name", "protection_status", "link"]
         else:
-            # MLTi: machine_id en raíz
-            _default_id_field = "machine_id" if "machine_id" in _ep_fields else (_ep_fields[0] if _ep_fields else "machine_id")
+            _ep_fields = ["machine_id", "host_name", "os_platform", "machine_ip", "last_seen", "account_id", "protection_status"]
+        _default_id_field = "machine_id"
 
         with st.expander("Diagnóstico endpoint de move"):
             st.caption("Prueba rutas candidatas de jobs. Si responde distinto de 404, la ruta existe.")
