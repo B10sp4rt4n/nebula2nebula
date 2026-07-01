@@ -325,7 +325,6 @@ def build_console_catalog() -> list:
         consoles.append(edron_oneview_console)
 
     # Agregar consolas de migraciones dinámicas (MIGRATION_N_*)
-    existing_client_ids = {c.get("client_id") for c in consoles}
     for mid, migration in sorted(_available_migrations.items()):
         migration_name = migration.get("name", f"Migration {mid}")
         src = migration.get("source", {})
@@ -333,7 +332,7 @@ def build_console_catalog() -> list:
 
         # SOURCE de la migración
         src_cid = src.get("client_id", "").strip()
-        if src_cid and src_cid not in existing_client_ids:
+        if src_cid:
             consoles.append({
                 "key": f"migration_{mid}_source",
                 "label": f"{migration_name} – Origen",
@@ -349,11 +348,10 @@ def build_console_catalog() -> list:
                 "endpoints_method": os.getenv(f"MIGRATION_{mid}_SOURCE_ENDPOINTS_METHOD", "GET"),
                 "move_path": "/nebula/v1/jobs",
             })
-            existing_client_ids.add(src_cid)
 
         # TARGET de la migración
         tgt_cid = tgt.get("client_id", "").strip()
-        if tgt_cid and tgt_cid not in existing_client_ids:
+        if tgt_cid:
             consoles.append({
                 "key": f"migration_{mid}_target",
                 "label": f"{migration_name} – Destino",
@@ -367,7 +365,6 @@ def build_console_catalog() -> list:
                 "account_token": tgt.get("account_token", "") or os.getenv("DESTINATION_ACCOUNT_TOKEN", ""),
                 "move_path": tgt.get("move_endpoint_path", "/nebula/v1/jobs"),
             })
-            existing_client_ids.add(tgt_cid)
 
     return consoles
 
