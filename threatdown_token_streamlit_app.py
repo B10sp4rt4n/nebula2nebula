@@ -1587,6 +1587,14 @@ with tab_migration:
         st.session_state["source_api_base_url"] = prefill_api_base_url
         st.session_state["source_token_url"] = prefill_token_url
         st.session_state["last_access_token"] = ""
+        for widget_key in (
+            "token_form_client_id",
+            "token_form_client_secret",
+            "token_form_api_base_url",
+            "token_form_token_url",
+            "token_form_scope",
+        ):
+            st.session_state.pop(f"{widget_key}_{migration_origin_key}", None)
         st.session_state.pop("listed_endpoints", None)
         st.session_state.pop("live_jobs_report_rows", None)
         st.session_state.pop("live_jobs_report_summary", None)
@@ -1613,16 +1621,34 @@ with tab_migration:
 
     st.subheader("1) Obtener token del origen")
     with st.form("token_form"):
-        client_id = st.text_input("Client ID", value=prefill_client_id, placeholder="Pega aquí tu client id")
+        client_id = st.text_input(
+            "Client ID",
+            value=prefill_client_id,
+            placeholder="Pega aquí tu client id",
+            key=f"token_form_client_id_{migration_origin_key}",
+        )
         client_secret = st.text_input(
             "Client Secret",
             value=prefill_client_secret,
             placeholder="Pega aquí tu client secret",
             type="password",
+            key=f"token_form_client_secret_{migration_origin_key}",
         )
-        api_base_url = st.text_input("API Base URL", value=prefill_api_base_url)
-        token_url = st.text_input("Token URL", value=prefill_token_url)
-        scope = st.text_input("Scope", value=prefill_scope)
+        api_base_url = st.text_input(
+            "API Base URL",
+            value=prefill_api_base_url,
+            key=f"token_form_api_base_url_{migration_origin_key}",
+        )
+        token_url = st.text_input(
+            "Token URL",
+            value=prefill_token_url,
+            key=f"token_form_token_url_{migration_origin_key}",
+        )
+        scope = st.text_input(
+            "Scope",
+            value=prefill_scope,
+            key=f"token_form_scope_{migration_origin_key}",
+        )
         submitted = st.form_submit_button("Obtener token", use_container_width=True)
 
     if submitted:
